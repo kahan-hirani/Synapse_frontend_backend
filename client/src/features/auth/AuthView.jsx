@@ -7,7 +7,7 @@ function AuthView({ authMode, authForm, status, onChangeMode, onFieldChange, onS
       <div className="bg-orb orb-one" />
       <div className="bg-orb orb-two" />
       <GlassPanel className="auth-card">
-        <p className="eyebrow">NotebookLM Clone Experience</p>
+        <p className="eyebrow">Synapse Experience</p>
         <h1>Build intelligence from your documents</h1>
         <p className="subtext">
           A cinematic, glassy workspace where your PDFs become interactive conversations.

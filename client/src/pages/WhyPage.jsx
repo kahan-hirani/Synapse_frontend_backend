@@ -5,12 +5,12 @@ function WhyPage() {
     <section className="space-y-8">
       <ScrollReveal>
         <article className="glass-panel p-7 md:p-10">
-          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Why NotebookLM</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Why Synapse</p>
           <h1 className="mt-3 max-w-3xl font-display text-4xl leading-tight text-white md:text-5xl">
             A research cockpit built for signal, not noise.
           </h1>
           <p className="mt-4 max-w-2xl text-slate-300">
-            NotebookLM keeps your thinking grounded in source material while giving you fast conversational workflows. It is designed for deep understanding, not shallow summaries.
+            Synapse keeps your thinking grounded in source material while giving you fast conversational workflows. It is designed for deep understanding, not shallow summaries.
           </p>
         </article>
       </ScrollReveal>

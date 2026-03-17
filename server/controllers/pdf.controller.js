@@ -2,11 +2,58 @@ const path = require("path");
 const { extractTextFromPDF } = require("../utilities/pdfProcessor.utility");
 const { embedGemini } = require("../utilities/geminiClient.utility");
 const PDF = require("../models/pdf.model");
+const Notebook = require('../models/notebook.model');
+const { toNotebookResponse } = require('./notebook.controller');
 const asyncHandler = require("../utilities/asyncHandler.utility");
 const redis = require("../db/redis");
 const { storePDFChunks } = require("../utilities/vectorStore.utility");
 
+async function attachSourceToNotebook(notebookId, userId, sourceName, pdfId) {
+  if (!notebookId) return null;
+
+  const notebook = await Notebook.findOne({ _id: notebookId, owner: userId });
+  if (!notebook) return null;
+
+  const existing = notebook.sources.find((source) => String(source.pdfId) === String(pdfId));
+  if (existing) {
+    notebook.updatedAt = new Date();
+    await notebook.save();
+    return {
+      notebook,
+      source: {
+        id: existing._id,
+        name: existing.name,
+        type: existing.type || 'PDF',
+        addedAt: existing.addedAt,
+        pdfId: existing.pdfId,
+      },
+    };
+  }
+
+  notebook.sources.unshift({
+    name: sourceName,
+    type: 'PDF',
+    pdfId,
+    addedAt: new Date(),
+  });
+  await notebook.save();
+
+  const added = notebook.sources[0];
+  return {
+    notebook,
+    source: {
+      id: added._id,
+      name: added.name,
+      type: added.type || 'PDF',
+      addedAt: added.addedAt,
+      pdfId: added.pdfId,
+    },
+  };
+}
+
 const uploadPDF = asyncHandler(async (req, res, next) => {
+  const notebookId = req.body.notebookId;
+
   if (!req.file) {
     return res.status(400).json({ success: false, message: "No file uploaded" });
   }
@@ -16,10 +63,15 @@ const uploadPDF = asyncHandler(async (req, res, next) => {
   // ✅ Redis cache check
   const cached = await redis.get(`pdf:${req.file.filename}`);
   if (cached) {
+    const cachedDoc = JSON.parse(cached);
+    const attachment = await attachSourceToNotebook(notebookId, req.user.id, req.file.originalname, cachedDoc._id);
+
     return res.status(200).json({
       success: true,
       message: "Loaded PDF embeddings from cache",
-      pdfId: JSON.parse(cached)._id,
+      pdfId: cachedDoc._id,
+      source: attachment?.source,
+      notebook: attachment?.notebook ? toNotebookResponse(attachment.notebook) : undefined,
     });
   }
 
@@ -82,10 +134,14 @@ const uploadPDF = asyncHandler(async (req, res, next) => {
   // ✅ Cache in Redis
   await redis.set(`pdf:${req.file.filename}`, JSON.stringify(pdfDoc), "EX", 86400);
 
+  const attachment = await attachSourceToNotebook(notebookId, req.user.id, req.file.originalname, pdfDoc._id);
+
   res.status(201).json({
     success: true,
     message: "✅ PDF uploaded & processed successfully",
     pdfId: pdfDoc._id,
+    source: attachment?.source,
+    notebook: attachment?.notebook ? toNotebookResponse(attachment.notebook) : undefined,
   });
 });
 

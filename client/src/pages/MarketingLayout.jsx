@@ -13,14 +13,14 @@ function MarketingLayout({ onTryNotebook }) {
 
       <header className="fixed inset-x-0 top-0 z-30 p-4 md:px-10">
         <nav className="glass-panel mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-          <p className="font-display text-2xl tracking-tight">NotebookLM</p>
+          <p className="font-display text-2xl tracking-tight">Synapse</p>
 
           <div className="hidden items-center gap-2 md:flex">
             <NavLink to="/" end className={navClass}>
               Home
             </NavLink>
             <NavLink to="/why" className={navClass}>
-              Why NotebookLM
+              Why Synapse
             </NavLink>
             <NavLink to="/contact" className={navClass}>
               Contact

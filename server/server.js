@@ -13,17 +13,19 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '3mb' }));
 app.use(cookieParser());
 
 const userRoute = require('./routers/user.routes.js');
 const pdfRoute = require('./routers/pdf.routes.js');
 const chatRoute = require('./routers/chat.routes.js');
+const notebookRoute = require('./routers/notebook.routes.js');
 const { getVectorFor } = require('./utilities/vectorStore.utility');
 
 app.use('/api/v1/users', userRoute);
 app.use('/api/v1/pdf', pdfRoute);
 app.use('/api/v1/chat', chatRoute);
+app.use('/api/v1/notebooks', notebookRoute);
 
 // Debug endpoint: inspect in-memory vectorDB for a pdfId
 app.get('/api/v1/debug/vector/:pdfId', (req, res) => {

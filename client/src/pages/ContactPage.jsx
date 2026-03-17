@@ -7,7 +7,7 @@ function ContactPage({ onTryNotebook }) {
       <ScrollReveal>
         <article className="glass-panel p-7 md:p-10">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Contact</p>
-          <h1 className="mt-3 font-display text-4xl leading-tight text-white md:text-5xl">Talk to the NotebookLM team</h1>
+          <h1 className="mt-3 font-display text-4xl leading-tight text-white md:text-5xl">Talk to the Synapse team</h1>
           <p className="mt-4 max-w-2xl text-slate-300">
             Questions about onboarding, collaboration, or enterprise usage? Send us a note and we will get back quickly.
           </p>
@@ -39,11 +39,11 @@ function ContactPage({ onTryNotebook }) {
           <aside className="space-y-4">
             <article className="glass-panel p-5">
               <p className="text-xs uppercase tracking-widest text-slate-500">General</p>
-              <p className="mt-2 font-display text-lg text-white">hello@notebooklm.local</p>
+              <p className="mt-2 font-display text-lg text-white">hello@synapse.local</p>
             </article>
             <article className="glass-panel p-5">
               <p className="text-xs uppercase tracking-widest text-slate-500">Partnerships</p>
-              <p className="mt-2 font-display text-lg text-white">partners@notebooklm.local</p>
+              <p className="mt-2 font-display text-lg text-white">partners@synapse.local</p>
             </article>
             <article className="glass-panel p-5">
               <p className="text-xs uppercase tracking-widest text-slate-500">Try the product now</p>

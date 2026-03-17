@@ -6,9 +6,14 @@ const isAuthenticated = asyncHandler(async (req, res, next) => {
 
     const token = req.cookies.token || req.headers['authorization']?.replace("Bearer ", "");
     if (!token) {
-        return next(new errorHandler("Invalid token", 400))
+        return next(new errorHandler("Unauthorized", 401))
     }
-    const tokenData = jwt.verify(token, process.env.JWT_SECRET)
+    let tokenData;
+    try {
+        tokenData = jwt.verify(token, process.env.JWT_SECRET)
+    } catch (error) {
+        return next(new errorHandler("Unauthorized", 401))
+    }
     req.user = tokenData
     next()
 });

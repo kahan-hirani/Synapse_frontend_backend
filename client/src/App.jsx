@@ -2,15 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { api } from './api/api';
 import { buildAppUrl, buildLandingUrl, isAppSubdomain } from './app/domain';
-import { STARTER_NOTEBOOKS, createInitialChatMap } from './app/constants/starterData';
 import AuthPage from './pages/AuthPage';
 import ContactPage from './pages/ContactPage';
 import DashboardPage from './pages/DashboardPage';
+import HomePage from './pages/HomePage';
 import LandingPage from './pages/LandingPage';
 import MarketingLayout from './pages/MarketingLayout';
 import NotebookPage from './pages/NotebookPage';
 import ProfilePage from './pages/ProfilePage';
+import SourcesPage from './pages/SourcesPage';
 import WhyPage from './pages/WhyPage';
+import CreateNotebookModal from './components/app/CreateNotebookModal';
+import RenameNotebookModal from './components/app/RenameNotebookModal';
+import ToastViewport from './components/app/ToastViewport';
 
 function App() {
   return (
@@ -47,34 +51,89 @@ function ProductRoutes() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('nb_token') || '');
   const [status, setStatus] = useState('');
+  const [theme, setTheme] = useState(() => localStorage.getItem('nb_theme') || 'dark');
 
-  const [notebooks, setNotebooks] = useState(STARTER_NOTEBOOKS);
-  const [chatMap, setChatMap] = useState(() => createInitialChatMap(STARTER_NOTEBOOKS));
+  const [notebooks, setNotebooks] = useState([]);
+  const [chatMap, setChatMap] = useState({});
   const [selectedSourceMap, setSelectedSourceMap] = useState({});
+  const [activityLog, setActivityLog] = useState([]);
 
   const [question, setQuestion] = useState('');
   const [uploading, setUploading] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [createNotebookOpen, setCreateNotebookOpen] = useState(false);
+  const [renameNotebookTarget, setRenameNotebookTarget] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const applyUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    const preferredTheme = nextUser?.preferences?.theme;
+    if (preferredTheme === 'dark' || preferredTheme === 'light') {
+      setTheme(preferredTheme);
+    }
+  }, []);
+
 
   const sourceInputRef = useRef(null);
   const didBootstrapProfile = useRef(false);
 
-  const ensureNotebookExists = useCallback(() => {
-    if (notebooks.length > 0) return notebooks[0].id;
+  useEffect(() => {
+    localStorage.setItem('nb_theme', theme);
+  }, [theme]);
 
-    const id = `n-${Date.now()}`;
-    const fallback = {
-      id,
-      icon: '📓',
-      title: 'Untitled notebook',
-      createdAt: new Date().toISOString(),
-      sources: [],
-      featured: false,
-    };
+  const notify = useCallback((message, kind = 'success') => {
+    const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setToasts((prev) => [...prev, { id, message, kind }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 3200);
+  }, []);
 
-    setNotebooks([fallback]);
-    setChatMap({ [id]: [] });
-    return id;
+  const pushActivity = useCallback((action, notebookTitle) => {
+    setActivityLog((prev) => [
+      {
+        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        action,
+        notebookTitle,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  const normalizeNotebook = useCallback((notebook) => ({
+    ...notebook,
+    id: String(notebook.id || notebook._id),
+    createdAt: notebook.createdAt || new Date().toISOString(),
+    lastEditedAt: notebook.lastEditedAt || notebook.updatedAt || notebook.createdAt || new Date().toISOString(),
+    sources: (notebook.sources || []).map((source) => ({
+      ...source,
+      id: String(source.id || source._id),
+      pdfId: source.pdfId ? String(source.pdfId) : '',
+    })),
+  }), []);
+
+  const loadNotebooks = useCallback(
+    async (authToken) => {
+      if (!authToken) return;
+      try {
+        const response = await api.listNotebooks(authToken);
+        const normalized = (response.notebooks || []).map(normalizeNotebook);
+        setNotebooks(normalized);
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    },
+    [normalizeNotebook, notify],
+  );
+
+  useEffect(() => {
+    setChatMap((prev) => {
+      const next = {};
+      notebooks.forEach((item) => {
+        next[item.id] = prev[item.id] || [];
+      });
+      return next;
+    });
   }, [notebooks]);
 
   useEffect(() => {
@@ -86,8 +145,8 @@ function ProductRoutes() {
 
       try {
         const data = await api.profile(token);
-        setUser(data.user);
-        ensureNotebookExists();
+        applyUser(data.user);
+        await loadNotebooks(token);
         navigate('/app', { replace: true });
       } catch {
         localStorage.removeItem('nb_token');
@@ -97,7 +156,7 @@ function ProductRoutes() {
     }
 
     bootstrapProfile();
-  }, [token, ensureNotebookExists, navigate]);
+  }, [token, applyUser, loadNotebooks, navigate]);
 
   const handleAuthFieldChange = (event) => {
     const { name, value } = event.target;
@@ -120,17 +179,46 @@ function ProductRoutes() {
       localStorage.setItem('nb_token', data.token);
 
       if (data.user) {
-        setUser(data.user);
+        applyUser(data.user);
       } else {
         const profileData = await api.profile(data.token);
-        setUser(profileData.user);
+        applyUser(profileData.user);
       }
 
+      await loadNotebooks(data.token);
+
       setStatus(authMode === 'register' ? 'Account created.' : 'Signed in successfully.');
+      notify(authMode === 'register' ? 'Account created successfully.' : 'Signed in successfully.');
       setAuthForm({ username: '', email: '', password: '' });
       navigate('/app', { replace: true });
     } catch (error) {
       setStatus(error.message);
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleUpdateProfile = async (payload) => {
+    if (!token) return false;
+    try {
+      const data = await api.updateProfile(payload, token);
+      applyUser(data.user);
+      notify('Profile updated successfully.');
+      return true;
+    } catch (error) {
+      notify(error.message, 'error');
+      return false;
+    }
+  };
+
+  const handleChangePassword = async (payload) => {
+    if (!token) return false;
+    try {
+      await api.updatePassword(payload, token);
+      notify('Password updated successfully.');
+      return true;
+    } catch (error) {
+      notify(error.message, 'error');
+      return false;
     }
   };
 
@@ -144,24 +232,113 @@ function ProductRoutes() {
       setToken('');
       setUser(null);
       setStatus('Logged out.');
+      notify('Logged out successfully.');
       navigate('/auth', { replace: true });
     }
   };
 
-  const handleCreateNotebook = () => {
-    const id = `n-${Date.now()}`;
-    const notebook = {
-      id,
-      icon: '📓',
-      title: `Untitled notebook ${notebooks.length + 1}`,
-      createdAt: new Date().toISOString(),
-      sources: [],
-      featured: false,
-    };
+  const handleCreateNotebook = async (title) => {
+    const notebookTitle = title.trim();
+    if (!notebookTitle || !token) return;
 
-    setNotebooks((prev) => [notebook, ...prev]);
-    setChatMap((prev) => ({ ...prev, [id]: [] }));
-    navigate(`/app/notebook/${id}`);
+    try {
+      const response = await api.createNotebook({ title: notebookTitle }, token);
+      const notebook = normalizeNotebook(response.notebook);
+      setNotebooks((prev) => [notebook, ...prev]);
+      pushActivity('Created notebook', notebook.title);
+      notify(`Notebook "${notebook.title}" created.`);
+      setCreateNotebookOpen(false);
+      navigate(`/app/notebook/${notebook.id}`);
+    } catch (error) {
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleRenameNotebook = async (id, nextTitle) => {
+    if (!token) return;
+    try {
+      const response = await api.updateNotebook(id, { title: nextTitle }, token);
+      const updated = normalizeNotebook(response.notebook);
+      setNotebooks((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      pushActivity('Renamed notebook', updated.title);
+      notify(`Renamed notebook to "${updated.title}".`);
+    } catch (error) {
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleDeleteNotebook = async (id) => {
+    if (!token) return;
+    const notebook = notebooks.find((item) => item.id === id);
+    if (!notebook) return;
+
+    try {
+      await api.deleteNotebook(id, token);
+      setNotebooks((prev) => prev.filter((item) => item.id !== id));
+      setChatMap((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setSelectedSourceMap((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      pushActivity('Deleted notebook', notebook.title);
+      notify(`Deleted notebook "${notebook.title}".`, 'warning');
+    } catch (error) {
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleDuplicateNotebook = async (id) => {
+    if (!token) return;
+
+    try {
+      const response = await api.duplicateNotebook(id, token);
+      const duplicate = normalizeNotebook(response.notebook);
+      setNotebooks((prev) => [duplicate, ...prev]);
+      setChatMap((prev) => ({ ...prev, [duplicate.id]: [...(prev[id] || [])] }));
+      pushActivity('Duplicated notebook', duplicate.title);
+      notify(`Duplicated notebook as "${duplicate.title}".`);
+    } catch (error) {
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleToggleShared = async (id) => {
+    if (!token) return;
+
+    const current = notebooks.find((item) => item.id === id);
+    if (!current) return;
+
+    try {
+      const response = await api.updateNotebook(id, { isShared: !current.isShared }, token);
+      const updated = normalizeNotebook(response.notebook);
+      setNotebooks((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      pushActivity(updated.isShared ? 'Shared notebook' : 'Unshared notebook', updated.title);
+      notify(updated.isShared ? `Shared "${updated.title}".` : `Unshared "${updated.title}".`);
+    } catch (error) {
+      notify(error.message, 'error');
+    }
+  };
+
+  const handleToggleFavorite = async (id) => {
+    if (!token) return;
+
+    const current = notebooks.find((item) => item.id === id);
+    if (!current) return;
+
+    try {
+      const response = await api.updateNotebook(id, { isFavorite: !current.isFavorite }, token);
+      const updated = normalizeNotebook(response.notebook);
+      setNotebooks((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      pushActivity(updated.isFavorite ? 'Added to favorites' : 'Removed from favorites', updated.title);
+      notify(updated.isFavorite ? `Added "${updated.title}" to favorites.` : `Removed "${updated.title}" from favorites.`);
+    } catch (error) {
+      notify(error.message, 'error');
+    }
   };
 
   const handleOpenNotebook = (id) => {
@@ -180,25 +357,23 @@ function ProductRoutes() {
     setStatus('');
 
     try {
-      const response = await api.uploadPdf(file, token);
-      const source = {
-        id: `s-${Date.now()}`,
-        name: file.name,
-        type: 'PDF',
-        addedAt: new Date().toISOString(),
-        pdfId: response.pdfId,
-      };
+      const response = await api.uploadPdf(file, token, notebook.id);
 
-      setNotebooks((prev) =>
-        prev.map((item) =>
-          item.id === notebook.id ? { ...item, sources: [source, ...item.sources] } : item,
-        ),
-      );
+      if (response.notebook) {
+        const updatedNotebook = normalizeNotebook(response.notebook);
+        setNotebooks((prev) => prev.map((item) => (item.id === notebook.id ? updatedNotebook : item)));
+      }
 
-      setSelectedSourceMap((prev) => ({ ...prev, [notebook.id]: source.id }));
+      if (response.source?.id) {
+        setSelectedSourceMap((prev) => ({ ...prev, [notebook.id]: String(response.source.id) }));
+      }
+
       setStatus('Source uploaded and ready for chat.');
+      pushActivity('Uploaded source', notebook.title);
+      notify(`Uploaded source to "${notebook.title}".`);
     } catch (error) {
       setStatus(error.message);
+      notify(error.message, 'error');
     } finally {
       setUploading(false);
       event.target.value = '';
@@ -222,6 +397,10 @@ function ProductRoutes() {
       const response = await api.askPdf({ pdfId: selectedSource.pdfId, question: questionText }, token);
       const citationText = (response.citations || []).map((citation) => `p.${citation.page}`).join(', ');
 
+      setNotebooks((prev) =>
+        prev.map((item) => (item.id === notebook.id ? { ...item, lastEditedAt: new Date().toISOString() } : item)),
+      );
+
       setChatMap((prev) => ({
         ...prev,
         [notebook.id]: [
@@ -233,11 +412,14 @@ function ProductRoutes() {
           },
         ],
       }));
+      pushActivity('Asked AI question', notebook.title);
+      notify('Answer generated successfully.');
     } catch (error) {
       setChatMap((prev) => ({
         ...prev,
         [notebook.id]: [...(prev[notebook.id] || []), { role: 'assistant', text: `Error: ${error.message}` }],
       }));
+      notify(error.message, 'error');
     } finally {
       setAsking(false);
     }
@@ -246,7 +428,8 @@ function ProductRoutes() {
   const protectedElement = (element) => (user ? element : <Navigate to="/auth" replace />);
 
   return (
-    <Routes>
+    <>
+      <Routes>
       <Route
         path="/auth"
         element={
@@ -266,17 +449,65 @@ function ProductRoutes() {
         }
       />
 
+      <Route path="/app" element={protectedElement(<Navigate to="/app/home" replace />)} />
+
       <Route
-        path="/app"
+        path="/app/home"
+        element={
+          protectedElement(
+            <HomePage
+              user={user}
+              notebooks={notebooks}
+              theme={theme}
+              onGoLibrary={() => navigate('/app/library')}
+              onGoSources={() => navigate('/app/sources')}
+              onGoProfile={() => navigate('/app/profile')}
+              onOpenNotebook={handleOpenNotebook}
+              onLogout={handleLogout}
+            />,
+          )
+        }
+      />
+
+      <Route
+        path="/app/library"
         element={
           protectedElement(
             <DashboardPage
               user={user}
               notebooks={notebooks}
-              onCreateNotebook={handleCreateNotebook}
+              theme={theme}
+              activityLog={activityLog}
+              onCreateNotebook={() => setCreateNotebookOpen(true)}
+              onRequestRenameNotebook={setRenameNotebookTarget}
               onOpenNotebook={handleOpenNotebook}
+              onDeleteNotebook={handleDeleteNotebook}
+              onDuplicateNotebook={handleDuplicateNotebook}
+              onToggleFavorite={handleToggleFavorite}
+              onToggleShared={handleToggleShared}
               onLogout={handleLogout}
               onGoProfile={() => navigate('/app/profile')}
+              onGoHome={() => navigate('/app/home')}
+              onGoLibrary={() => navigate('/app/library')}
+              onGoSources={() => navigate('/app/sources')}
+            />,
+          )
+        }
+      />
+
+      <Route
+        path="/app/sources"
+        element={
+          protectedElement(
+            <SourcesPage
+              user={user}
+              notebooks={notebooks}
+              theme={theme}
+              onGoHome={() => navigate('/app/home')}
+              onGoLibrary={() => navigate('/app/library')}
+              onGoProfile={() => navigate('/app/profile')}
+              onOpenNotebook={handleOpenNotebook}
+              onLogout={handleLogout}
             />,
           )
         }
@@ -296,7 +527,7 @@ function ProductRoutes() {
               status={status}
               sourceInputRef={sourceInputRef}
               onOpenNotebook={handleOpenNotebook}
-              onGoDashboard={() => navigate('/app')}
+              onGoDashboard={() => navigate('/app/library')}
               onUpload={handleUpload}
               onSelectSource={handleSelectSource}
               onAsk={handleAsk}
@@ -313,7 +544,14 @@ function ProductRoutes() {
             <ProfilePage
               user={user}
               notebooks={notebooks}
-              onGoDashboard={() => navigate('/app')}
+              chatMap={chatMap}
+              theme={theme}
+              onUpdateProfile={handleUpdateProfile}
+              onChangePassword={handleChangePassword}
+              onGoHome={() => navigate('/app/home')}
+              onGoLibrary={() => navigate('/app/library')}
+              onGoSources={() => navigate('/app/sources')}
+              onOpenNotebook={handleOpenNotebook}
               onLogout={handleLogout}
             />,
           )
@@ -321,7 +559,27 @@ function ProductRoutes() {
       />
 
       <Route path="*" element={<Navigate to={user ? '/app' : '/auth'} replace />} />
-    </Routes>
+      </Routes>
+
+      <CreateNotebookModal
+        isOpen={createNotebookOpen}
+        isDark={theme === 'dark'}
+        onClose={() => setCreateNotebookOpen(false)}
+        onCreate={handleCreateNotebook}
+      />
+      <ToastViewport toasts={toasts} onDismiss={(id) => setToasts((prev) => prev.filter((item) => item.id !== id))} />
+      <RenameNotebookModal
+        isOpen={Boolean(renameNotebookTarget)}
+        isDark={theme === 'dark'}
+        notebookTitle={renameNotebookTarget?.title || ''}
+        onClose={() => setRenameNotebookTarget(null)}
+        onRename={(nextTitle) => {
+          if (!renameNotebookTarget) return;
+          handleRenameNotebook(renameNotebookTarget.id, nextTitle);
+          setRenameNotebookTarget(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -343,6 +601,10 @@ function NotebookRoute({
 }) {
   const { notebookId } = useParams();
   const notebook = useMemo(() => notebooks.find((item) => item.id === notebookId) || notebooks[0], [notebooks, notebookId]);
+
+  if (!notebook) {
+    return <Navigate to="/app/library" replace />;
+  }
 
   const selectedSource = useMemo(() => {
     if (!notebook?.sources?.length) return null;

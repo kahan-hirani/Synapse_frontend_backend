@@ -42,6 +42,28 @@ export const api = {
     }
   },
 
+  updateProfile: async (payload, token) => {
+    try {
+      const { data } = await apiClient.patch('/users/profile', payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  updatePassword: async (payload, token) => {
+    try {
+      const { data } = await apiClient.patch('/users/profile/password', payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
   logout: async (token) => {
     try {
       const { data } = await apiClient.post(
@@ -57,9 +79,71 @@ export const api = {
     }
   },
 
-  uploadPdf: async (file, token) => {
+  listNotebooks: async (token) => {
+    try {
+      const { data } = await apiClient.get('/notebooks', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  createNotebook: async (payload, token) => {
+    try {
+      const { data } = await apiClient.post('/notebooks', payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  updateNotebook: async (id, payload, token) => {
+    try {
+      const { data } = await apiClient.patch(`/notebooks/${id}`, payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  deleteNotebook: async (id, token) => {
+    try {
+      const { data } = await apiClient.delete(`/notebooks/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  duplicateNotebook: async (id, token) => {
+    try {
+      const { data } = await apiClient.post(
+        `/notebooks/${id}/duplicate`,
+        {},
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  uploadPdf: async (file, token, notebookId) => {
     const formData = new FormData();
     formData.append('pdf', file);
+    if (notebookId) {
+      formData.append('notebookId', notebookId);
+    }
 
     try {
       const { data } = await apiClient.post('/pdf/upload', formData, {
