@@ -123,6 +123,17 @@ export const api = {
     }
   },
 
+  deleteNotebookSource: async (notebookId, sourceId, token) => {
+    try {
+      const { data } = await apiClient.delete(`/notebooks/${notebookId}/sources/${sourceId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
   duplicateNotebook: async (id, token) => {
     try {
       const { data } = await apiClient.post(
@@ -158,6 +169,17 @@ export const api = {
   askPdf: async (payload, token) => {
     try {
       const { data } = await apiClient.post('/chat', payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return data;
+    } catch (error) {
+      throw new Error(normalizeError(error));
+    }
+  },
+
+  getNotebookChatHistory: async (notebookId, token) => {
+    try {
+      const { data } = await apiClient.get(`/chat/history/${notebookId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       return data;

@@ -1,6 +1,9 @@
 const asyncHandler = require('../utilities/asyncHandler.utility');
 const ErrorHandler = require('../utilities/errorHandler.utility');
 const Notebook = require('../models/notebook.model');
+const PDF = require('../models/pdf.model');
+const Chat = require('../models/chat.model');
+const redis = require('../db/redis');
 
 function toNotebookResponse(doc) {
   return {
@@ -130,6 +133,49 @@ const duplicateNotebook = asyncHandler(async (req, res, next) => {
   });
 });
 
+const deleteNotebookSource = asyncHandler(async (req, res, next) => {
+  const { notebookId, sourceId } = req.params;
+
+  const notebook = await Notebook.findOne({ _id: notebookId, owner: req.user.id });
+  if (!notebook) {
+    return next(new ErrorHandler('Notebook not found', 404));
+  }
+
+  const sourceIndex = notebook.sources.findIndex((source) => String(source._id) === String(sourceId));
+  if (sourceIndex < 0) {
+    return next(new ErrorHandler('Source not found', 404));
+  }
+
+  const removedSource = notebook.sources[sourceIndex];
+  notebook.sources.splice(sourceIndex, 1);
+  await notebook.save();
+
+  const removedPdfId = removedSource?.pdfId ? String(removedSource.pdfId) : null;
+  if (removedPdfId) {
+    const isPdfUsedElsewhere = await Notebook.exists({
+      owner: req.user.id,
+      _id: { $ne: notebook._id },
+      'sources.pdfId': removedSource.pdfId,
+    });
+
+    if (!isPdfUsedElsewhere) {
+      await PDF.deleteOne({ _id: removedSource.pdfId, uploadedBy: req.user.id });
+      await Chat.deleteMany({ user: req.user.id, pdf: removedSource.pdfId });
+    }
+  }
+
+  const historyKey = `chat:history:${req.user.id}:${notebook._id}`;
+  await redis.del(historyKey);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Source deleted',
+    deletedSourceId: sourceId,
+    deletedPdfId: removedPdfId,
+    notebook: toNotebookResponse(notebook),
+  });
+});
+
 module.exports = {
   toNotebookResponse,
   listNotebooks,
@@ -137,4 +183,5 @@ module.exports = {
   updateNotebook,
   deleteNotebook,
   duplicateNotebook,
+  deleteNotebookSource,
 };

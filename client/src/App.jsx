@@ -394,6 +394,38 @@ function ProductRoutes() {
     }
   };
 
+  const handleDeleteSource = async (notebookId, sourceId) => {
+    if (!token || !notebookId || !sourceId) return false;
+
+    const notebook = notebooks.find((item) => item.id === notebookId);
+    if (!notebook) return false;
+
+    const source = (notebook.sources || []).find((item) => item.id === sourceId);
+
+    try {
+      const response = await api.deleteNotebookSource(notebookId, sourceId, token);
+      const updatedNotebook = response.notebook ? normalizeNotebook(response.notebook) : null;
+
+      if (updatedNotebook) {
+        setNotebooks((prev) => prev.map((item) => (item.id === notebookId ? updatedNotebook : item)));
+        setSelectedSourceMap((prev) => {
+          const next = { ...prev };
+          if (next[notebookId] === sourceId) {
+            next[notebookId] = updatedNotebook.sources?.[0]?.id || '';
+          }
+          return next;
+        });
+      }
+
+      pushActivity('Deleted source', notebook.title);
+      notify(`Deleted source "${source?.name || 'source'}".`, 'warning');
+      return true;
+    } catch (error) {
+      notify(error.message, 'error');
+      return false;
+    }
+  };
+
   const handleAsk = async (event, notebook, selectedSource, sourceMode = 'selected') => {
     event.preventDefault();
     const isAllSourcesMode = sourceMode === 'all';
@@ -415,7 +447,7 @@ function ProductRoutes() {
     try {
       const payload = isAllSourcesMode
         ? { notebookId: notebook.id, question: questionText }
-        : { pdfId: selectedSource.pdfId, question: questionText };
+        : { pdfId: selectedSource.pdfId, notebookId: notebook.id, question: questionText };
 
       const response = await api.askPdf(payload, token);
       const citationText = (response.citations || []).map((citation) => `p.${citation.page}`).join(', ');
@@ -446,6 +478,20 @@ function ProductRoutes() {
       setAsking(false);
     }
   };
+
+  const handleLoadNotebookChatHistory = useCallback(
+    async (notebookId) => {
+      if (!token || !notebookId) return;
+      try {
+        const response = await api.getNotebookChatHistory(notebookId, token);
+        if (!Array.isArray(response.messages)) return;
+        setChatMap((prev) => ({ ...prev, [notebookId]: response.messages }));
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    },
+    [token, notify],
+  );
 
   const protectedElement = (element) => (user ? element : <Navigate to="/auth" replace />);
 
@@ -549,12 +595,15 @@ function ProductRoutes() {
               asking={asking}
               uploading={uploading}
               status={status}
+              theme={theme}
               sourceInputRef={sourceInputRef}
               onOpenNotebook={handleOpenNotebook}
               onGoDashboard={() => navigate('/app/library')}
               onUpload={handleUpload}
               onSelectSource={handleSelectSource}
               onAsk={handleAsk}
+              onDeleteSource={handleDeleteSource}
+              onLoadNotebookChatHistory={handleLoadNotebookChatHistory}
               onQuestionChange={setQuestion}
             />,
           )
@@ -616,12 +665,15 @@ function NotebookRoute({
   asking,
   uploading,
   status,
+  theme,
   sourceInputRef,
   onOpenNotebook,
   onGoDashboard,
   onUpload,
   onSelectSource,
   onAsk,
+  onDeleteSource,
+  onLoadNotebookChatHistory,
   onQuestionChange,
 }) {
   const { notebookId } = useParams();
@@ -637,6 +689,11 @@ function NotebookRoute({
     return notebook.sources.find((source) => source.id === selectedId) || notebook.sources[0];
   }, [notebook, selectedSourceMap]);
 
+  useEffect(() => {
+    if (!notebook?.id) return;
+    onLoadNotebookChatHistory(notebook.id);
+  }, [notebook?.id, onLoadNotebookChatHistory]);
+
   return (
     <NotebookPage
       notebook={notebook}
@@ -647,10 +704,12 @@ function NotebookRoute({
       question={question}
       asking={asking}
       uploading={uploading}
+      theme={theme}
       status={status}
       onSelectSource={(sourceId) => onSelectSource(notebook.id, sourceId)}
       onQuestionChange={onQuestionChange}
       onAsk={(event, sourceMode) => onAsk(event, notebook, selectedSource, sourceMode)}
+      onDeleteSource={(sourceId) => onDeleteSource(notebook.id, sourceId)}
       onUpload={(event) => onUpload(event, notebook)}
       onRequestUpload={() => sourceInputRef.current?.click()}
       onGoDashboard={onGoDashboard}

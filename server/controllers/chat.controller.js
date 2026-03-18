@@ -9,6 +9,7 @@ const { storePDFChunks, getVectorFor, searchChunksAcrossPdfs } = require('../uti
 
 const RETRIEVAL_TOP_K = Number(process.env.RAG_RETRIEVAL_TOP_K || 20);
 const RERANK_TOP_N = Number(process.env.RAG_RERANK_TOP_N || 5);
+const CHAT_HISTORY_TTL_SECONDS = Number(process.env.CHAT_HISTORY_CACHE_TTL || 1800);
 
 function buildPrompt(question, chunks) {
   const sourceBlock = chunks
@@ -50,6 +51,57 @@ function uniqueCitations(chunks) {
   return citations;
 }
 
+function buildHistoryCacheKey(userId, notebookId) {
+  return `chat:history:${userId}:${notebookId}`;
+}
+
+function buildRagCacheKey(userId, pdfIds, question) {
+  return `chat:rag:${userId}:${pdfIds.sort().join(',')}:${String(question).trim().toLowerCase()}`;
+}
+
+function citationsMeta(citations) {
+  if (!Array.isArray(citations) || !citations.length) return 'Citations unavailable';
+  return `Citations: ${citations.map((citation) => `p.${citation.page}`).join(', ')}`;
+}
+
+function toMessagesFromHistory(history) {
+  return history.flatMap((entry) => [
+    { role: 'user', text: entry.question },
+    {
+      role: 'assistant',
+      text: entry.answer,
+      meta: citationsMeta(entry.citations),
+    },
+  ]);
+}
+
+async function readNotebookHistoryFromDb(userId, notebook, sourcePdfIds) {
+  const chats = await Chat.find({
+    user: userId,
+    $or: [
+      { notebook: notebook._id },
+      { notebook: null, pdf: { $in: sourcePdfIds } },
+    ],
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  return chats.map((chat) => ({
+    question: chat.question,
+    answer: chat.answer,
+    citations: chat.citations || [],
+    createdAt: chat.createdAt,
+  }));
+}
+
+async function appendHistoryCache(userId, notebookId, entry) {
+  const historyKey = buildHistoryCacheKey(userId, notebookId);
+  const raw = await redis.get(historyKey);
+  const history = raw ? JSON.parse(raw) : [];
+  history.push(entry);
+  await redis.set(historyKey, JSON.stringify(history), 'EX', CHAT_HISTORY_TTL_SECONDS);
+}
+
 async function ensurePdfVectors(pdfDoc) {
   const pdfId = String(pdfDoc._id);
   if (getVectorFor(pdfId).length) return;
@@ -79,6 +131,7 @@ const chatWithPDF = asyncHandler(async (req, res, next) => {
   }
 
   let targetPdfDocs = [];
+  let notebookDoc = null;
 
   if (pdfId) {
     const doc = await PDF.findOne({ _id: pdfId, uploadedBy: req.user.id });
@@ -86,13 +139,20 @@ const chatWithPDF = asyncHandler(async (req, res, next) => {
       return next(new ErrorHandler('PDF not found.', 404));
     }
     targetPdfDocs = [doc];
+
+    if (notebookId) {
+      notebookDoc = await Notebook.findOne({ _id: notebookId, owner: req.user.id });
+      if (!notebookDoc) {
+        return next(new ErrorHandler('Notebook not found.', 404));
+      }
+    }
   } else {
-    const notebook = await Notebook.findOne({ _id: notebookId, owner: req.user.id });
-    if (!notebook) {
+    notebookDoc = await Notebook.findOne({ _id: notebookId, owner: req.user.id });
+    if (!notebookDoc) {
       return next(new ErrorHandler('Notebook not found.', 404));
     }
 
-    const sourcePdfIds = (notebook.sources || []).map((source) => source.pdfId).filter(Boolean);
+    const sourcePdfIds = (notebookDoc.sources || []).map((source) => source.pdfId).filter(Boolean);
     if (!sourcePdfIds.length) {
       return next(new ErrorHandler('This notebook has no sources yet.', 400));
     }
@@ -108,10 +168,31 @@ const chatWithPDF = asyncHandler(async (req, res, next) => {
   }
 
   const pdfIds = targetPdfDocs.map((doc) => String(doc._id));
-  const cacheKey = `chat:rag:${req.user.id}:${pdfIds.sort().join(',')}:${String(question).trim().toLowerCase()}`;
+  const cacheKey = buildRagCacheKey(req.user.id, pdfIds, question);
   const cached = await redis.get(cacheKey);
   if (cached) {
-    return res.status(200).json(JSON.parse(cached));
+    const cachedResponse = JSON.parse(cached);
+    const cacheEntry = {
+      question: String(question).trim(),
+      answer: cachedResponse.answer,
+      citations: cachedResponse.citations || [],
+      createdAt: new Date().toISOString(),
+    };
+
+    if (notebookDoc?._id) {
+      await appendHistoryCache(req.user.id, String(notebookDoc._id), cacheEntry);
+    }
+
+    const chatEntry = await Chat.create({
+      user: req.user.id,
+      pdf: targetPdfDocs[0]._id,
+      notebook: notebookDoc?._id || null,
+      question: cacheEntry.question,
+      answer: cacheEntry.answer,
+      citations: cacheEntry.citations.map((item) => ({ page: item.page, source: item.source })),
+    });
+
+    return res.status(200).json({ ...cachedResponse, chatId: chatEntry._id });
   }
 
   for (const doc of targetPdfDocs) {
@@ -134,8 +215,29 @@ const chatWithPDF = asyncHandler(async (req, res, next) => {
       answer: 'I could not find relevant content in your uploaded sources for this question.',
       citations: [],
     };
+
     await redis.set(cacheKey, JSON.stringify(emptyResponse), 'EX', 300);
-    return res.status(200).json(emptyResponse);
+
+    const emptyHistoryEntry = {
+      question: String(question).trim(),
+      answer: emptyResponse.answer,
+      citations: [],
+      createdAt: new Date().toISOString(),
+    };
+    if (notebookDoc?._id) {
+      await appendHistoryCache(req.user.id, String(notebookDoc._id), emptyHistoryEntry);
+    }
+
+    const emptyChatEntry = await Chat.create({
+      user: req.user.id,
+      pdf: targetPdfDocs[0]._id,
+      notebook: notebookDoc?._id || null,
+      question: String(question).trim(),
+      answer: emptyResponse.answer,
+      citations: [],
+    });
+
+    return res.status(200).json({ ...emptyResponse, chatId: emptyChatEntry._id });
   }
 
   const reranked = await rerankChunks(question, retrieved, RERANK_TOP_N);
@@ -143,23 +245,68 @@ const chatWithPDF = asyncHandler(async (req, res, next) => {
   const answer = await generateAnswer(prompt);
   const citations = uniqueCitations(reranked);
 
+  const response = {
+    success: true,
+    answer,
+    citations,
+  };
+
+  await redis.set(cacheKey, JSON.stringify(response), 'EX', 600);
+
+  const historyEntry = {
+    question: String(question).trim(),
+    answer,
+    citations,
+    createdAt: new Date().toISOString(),
+  };
+  if (notebookDoc?._id) {
+    await appendHistoryCache(req.user.id, String(notebookDoc._id), historyEntry);
+  }
+
   const chatEntry = await Chat.create({
     user: req.user.id,
     pdf: targetPdfDocs[0]._id,
+    notebook: notebookDoc?._id || null,
     question: String(question).trim(),
     answer,
     citations: citations.map((item) => ({ page: item.page, source: item.source })),
   });
 
-  const response = {
-    success: true,
-    answer,
-    citations,
-    chatId: chatEntry._id,
-  };
-
-  await redis.set(cacheKey, JSON.stringify(response), 'EX', 600);
+  response.chatId = chatEntry._id;
   return res.status(200).json(response);
 });
 
-module.exports = { chatWithPDF };
+const getNotebookChatHistory = asyncHandler(async (req, res, next) => {
+  const { notebookId } = req.params;
+
+  const notebook = await Notebook.findOne({ _id: notebookId, owner: req.user.id });
+  if (!notebook) {
+    return next(new ErrorHandler('Notebook not found.', 404));
+  }
+
+  const sourcePdfIds = (notebook.sources || []).map((source) => source.pdfId).filter(Boolean);
+  const historyKey = buildHistoryCacheKey(req.user.id, notebookId);
+  const cached = await redis.get(historyKey);
+
+  if (cached) {
+    const history = JSON.parse(cached);
+    return res.status(200).json({
+      success: true,
+      source: 'redis',
+      history,
+      messages: toMessagesFromHistory(history),
+    });
+  }
+
+  const history = await readNotebookHistoryFromDb(req.user.id, notebook, sourcePdfIds);
+  await redis.set(historyKey, JSON.stringify(history), 'EX', CHAT_HISTORY_TTL_SECONDS);
+
+  return res.status(200).json({
+    success: true,
+    source: 'db',
+    history,
+    messages: toMessagesFromHistory(history),
+  });
+});
+
+module.exports = { chatWithPDF, getNotebookChatHistory };

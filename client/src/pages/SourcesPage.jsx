@@ -2,10 +2,23 @@ import { useMemo, useState } from 'react';
 import AppSidebar from '../components/app/AppSidebar';
 import { useSidebarState } from '../app/SidebarContext';
 
+function shortenSourceName(name, maxLength = 28) {
+  const value = String(name || '').trim();
+  if (!value) return 'Untitled source';
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}...`;
+}
+
 function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfile, onCreateNotebook, onOpenNotebook, onLogout }) {
   const { isCollapsed, toggleCollapsed } = useSidebarState();
   const [query, setQuery] = useState('');
+  const [selectedNotebookId, setSelectedNotebookId] = useState('all');
   const isDark = theme === 'dark';
+
+  const notebookFilters = useMemo(
+    () => notebooks.filter((item) => (item.sources || []).length > 0).map((item) => ({ id: item.id, title: item.title })),
+    [notebooks],
+  );
 
   const sources = useMemo(() => {
     const items = notebooks.flatMap((notebook) =>
@@ -18,10 +31,13 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
       })),
     );
 
+    const byNotebook =
+      selectedNotebookId === 'all' ? items : items.filter((item) => String(item.notebookId) === String(selectedNotebookId));
+
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return items;
-    return items.filter((item) => item.sourceName.toLowerCase().includes(normalized) || item.notebookTitle.toLowerCase().includes(normalized));
-  }, [notebooks, query]);
+    if (!normalized) return byNotebook;
+    return byNotebook.filter((item) => item.sourceName.toLowerCase().includes(normalized) || item.notebookTitle.toLowerCase().includes(normalized));
+  }, [notebooks, query, selectedNotebookId]);
 
   return (
     <div className={`min-h-screen lg:flex ${isDark ? 'bg-[#050505] text-white' : 'bg-[#f2f2f2] text-[#111827]'}`}>
@@ -45,18 +61,38 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
             <h1 className="text-3xl font-bold tracking-tight">Sources</h1>
             <p className={`mt-1 text-sm ${isDark ? 'text-white/60' : 'text-slate-500'}`}>All uploaded references across your notebooks.</p>
           </div>
-          <label className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 transition focus-within:ring-2 focus-within:ring-[#f15a0f]/40 ${isDark ? 'border-white/15 bg-white/[0.03] focus-within:border-[#f15a0f]' : 'border-slate-200 bg-white focus-within:border-[#f15a0f]'}`}>
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.3-4.3M5.5 10.5a5 5 0 1 0 10 0 5 5 0 0 0-10 0Z" />
-            </svg>
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search sources or notebooks"
-              className={`w-[220px] bg-transparent text-sm outline-none sm:w-72 ${isDark ? 'text-white placeholder:text-white/35' : 'text-slate-700 placeholder:text-slate-400'}`}
-            />
-          </label>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 ${isDark ? 'border-white/15 bg-white/[0.03]' : 'border-slate-200 bg-white'}`}>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h12" />
+              </svg>
+              <select
+                value={selectedNotebookId}
+                onChange={(event) => setSelectedNotebookId(event.target.value)}
+                className={`w-[170px] bg-transparent text-sm outline-none ${isDark ? 'text-white' : 'text-slate-700'}`}
+              >
+                <option value="all">All notebooks</option>
+                {notebookFilters.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 transition focus-within:ring-2 focus-within:ring-[#f15a0f]/40 ${isDark ? 'border-white/15 bg-white/[0.03] focus-within:border-[#f15a0f]' : 'border-slate-200 bg-white focus-within:border-[#f15a0f]'}`}>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.3-4.3M5.5 10.5a5 5 0 1 0 10 0 5 5 0 0 0-10 0Z" />
+              </svg>
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search sources or notebooks"
+                className={`w-[220px] bg-transparent text-sm outline-none sm:w-72 ${isDark ? 'text-white placeholder:text-white/35' : 'text-slate-700 placeholder:text-slate-400'}`}
+              />
+            </label>
+          </div>
         </div>
 
         <div className={`hidden overflow-hidden rounded-2xl border lg:block ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-white/80'}`}>
@@ -72,7 +108,7 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
             <tbody className={`${isDark ? 'divide-y divide-white/5 text-white/90' : 'divide-y divide-slate-100 text-slate-700'}`}>
               {sources.map((item) => (
                 <tr key={item.sourceId}>
-                  <td className="px-5 py-3">{item.sourceName}</td>
+                  <td className="px-5 py-3" title={item.sourceName}>{shortenSourceName(item.sourceName)}</td>
                   <td className="px-5 py-3">{item.notebookTitle}</td>
                   <td className={`px-5 py-3 ${isDark ? 'text-white/55' : 'text-slate-500'}`}>
                     {item.addedAt ? new Date(item.addedAt).toLocaleDateString() : 'Unknown'}
@@ -105,7 +141,7 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
               key={item.sourceId}
               className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-orange-100 bg-white/85'}`}
             >
-              <p className="line-clamp-1 text-sm font-semibold">{item.sourceName}</p>
+              <p className="line-clamp-1 text-sm font-semibold" title={item.sourceName}>{shortenSourceName(item.sourceName, 24)}</p>
               <p className={`mt-1 text-xs ${isDark ? 'text-white/55' : 'text-slate-500'}`}>{item.notebookTitle}</p>
               <p className={`mt-1 text-[11px] ${isDark ? 'text-white/45' : 'text-slate-400'}`}>
                 Added {item.addedAt ? new Date(item.addedAt).toLocaleDateString() : 'Unknown'}

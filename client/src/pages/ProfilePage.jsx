@@ -187,8 +187,8 @@ function ProfilePage({
         <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
           <div className={`rounded-2xl border p-5 backdrop-blur ${isDark ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-white/70'}`}>
             <div className="mb-2 flex items-center justify-between">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-100'}`}>
-                <svg className="h-4 w-4 text-slate-500 lg:text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-200 text-slate-700'}`}>
+                <svg className={`h-4 w-4 ${isDark ? 'text-white' : 'text-slate-700'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
@@ -200,8 +200,8 @@ function ProfilePage({
 
           <div className={`rounded-2xl border p-5 backdrop-blur ${isDark ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-white/70'}`}>
             <div className="mb-2 flex items-center justify-between">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-100'}`}>
-                <svg className="h-4 w-4 text-slate-500 lg:text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-200 text-slate-700'}`}>
+                <svg className={`h-4 w-4 ${isDark ? 'text-white' : 'text-slate-700'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
@@ -213,8 +213,8 @@ function ProfilePage({
 
           <div className={`col-span-2 rounded-2xl border p-5 backdrop-blur lg:col-span-1 ${isDark ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-white/70'}`}>
             <div className="mb-3 flex items-center justify-between">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-100'}`}>
-                <svg className="h-4 w-4 text-slate-500 lg:text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isDark ? 'lg:border lg:border-white/10 lg:bg-white/5' : 'bg-slate-200 text-slate-700'}`}>
+                <svg className={`h-4 w-4 ${isDark ? 'text-white' : 'text-slate-700'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                 </svg>
               </div>
@@ -263,7 +263,7 @@ function ProfilePage({
                 className={`flex w-full items-center justify-between p-4 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${idx < settingsItems.length - 1 ? isDark ? 'border-b border-white/5' : 'border-b border-slate-100' : ''}`}
               >
                 <div className="flex items-center gap-3 lg:gap-4">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isDark ? 'bg-gray-800 text-gray-300' : 'bg-slate-100 text-slate-500'}`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isDark ? 'bg-gray-800 text-gray-300' : 'bg-slate-200 text-slate-700'}`}>
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12M6 12h12" />
                     </svg>
@@ -276,7 +276,7 @@ function ProfilePage({
                 {row.value ? (
                   <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isDark ? 'bg-white/10 text-[#ffb286]' : 'bg-orange-100 text-orange-700'}`}>{row.value}</span>
                 ) : (
-                  <svg className={`h-4 w-4 ${isDark ? 'text-gray-600' : 'text-slate-300'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg className={`h-4 w-4 ${isDark ? 'text-gray-600' : 'text-slate-500'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 )}

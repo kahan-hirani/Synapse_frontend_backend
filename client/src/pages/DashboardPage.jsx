@@ -123,6 +123,12 @@ function DashboardPage({
     }
   };
 
+  const handleNotebookCardClick = (event, notebookId) => {
+    const interactiveEl = event.target.closest('button, a, input, select, textarea, [data-notebook-menu-root="true"]');
+    if (interactiveEl) return;
+    onOpenNotebook(notebookId);
+  };
+
   const tabs = ["All", "Recent", "Shared", "Favorites"];
 
   return (
@@ -222,10 +228,19 @@ function DashboardPage({
           {filteredNotebooks.slice(0, 9).map((notebook) => (
             <article
               key={notebook.id}
+              role="button"
+              tabIndex={0}
+              onClick={(event) => handleNotebookCardClick(event, notebook.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenNotebook(notebook.id);
+                }
+              }}
               className={`rounded-3xl border p-5 transition-all duration-200 ${
                 isDark
-                  ? "border-white/10 bg-white/[0.04] hover:-translate-y-0.5 hover:border-[#f15a0f]/60 hover:shadow-[0_10px_30px_rgba(241,90,15,0.18)]"
-                  : "border-orange-100 bg-white/85 hover:-translate-y-0.5 hover:border-[#f15a0f]/60 hover:shadow-[0_12px_26px_rgba(241,90,15,0.15)]"
+                  ? "border-white/10 bg-white/[0.04] hover:-translate-y-0.5 hover:border-[#f15a0f]/60 hover:shadow-[0_10px_30px_rgba(241,90,15,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f15a0f]/50"
+                  : "border-orange-100 bg-white/85 hover:-translate-y-0.5 hover:border-[#f15a0f]/60 hover:shadow-[0_12px_26px_rgba(241,90,15,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f15a0f]/40"
               }`}
             >
               <div className="mb-3 flex items-start justify-between gap-3">
