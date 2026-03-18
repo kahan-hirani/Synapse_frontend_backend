@@ -394,9 +394,14 @@ function ProductRoutes() {
     }
   };
 
-  const handleAsk = async (event, notebook, selectedSource) => {
+  const handleAsk = async (event, notebook, selectedSource, sourceMode = 'selected') => {
     event.preventDefault();
-    if (!question.trim() || !selectedSource?.pdfId || !token || asking || !notebook) return;
+    const isAllSourcesMode = sourceMode === 'all';
+    const hasNotebookSources = Boolean(notebook?.sources?.length);
+    const hasSelectedSource = Boolean(selectedSource?.pdfId);
+
+    if (!question.trim() || !token || asking || !notebook) return;
+    if ((!isAllSourcesMode && !hasSelectedSource) || (isAllSourcesMode && !hasNotebookSources)) return;
 
     const questionText = question.trim();
     setQuestion('');
@@ -408,7 +413,11 @@ function ProductRoutes() {
     }));
 
     try {
-      const response = await api.askPdf({ pdfId: selectedSource.pdfId, question: questionText }, token);
+      const payload = isAllSourcesMode
+        ? { notebookId: notebook.id, question: questionText }
+        : { pdfId: selectedSource.pdfId, question: questionText };
+
+      const response = await api.askPdf(payload, token);
       const citationText = (response.citations || []).map((citation) => `p.${citation.page}`).join(', ');
 
       setNotebooks((prev) =>
@@ -427,7 +436,6 @@ function ProductRoutes() {
         ],
       }));
       pushActivity('Asked AI question', notebook.title);
-      notify('Answer generated successfully.');
     } catch (error) {
       setChatMap((prev) => ({
         ...prev,
@@ -642,7 +650,7 @@ function NotebookRoute({
       status={status}
       onSelectSource={(sourceId) => onSelectSource(notebook.id, sourceId)}
       onQuestionChange={onQuestionChange}
-      onAsk={(event) => onAsk(event, notebook, selectedSource)}
+      onAsk={(event, sourceMode) => onAsk(event, notebook, selectedSource, sourceMode)}
       onUpload={(event) => onUpload(event, notebook)}
       onRequestUpload={() => sourceInputRef.current?.click()}
       onGoDashboard={onGoDashboard}
