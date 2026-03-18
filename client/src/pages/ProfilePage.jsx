@@ -14,6 +14,7 @@ function ProfilePage({
   onGoHome,
   onGoLibrary,
   onGoSources,
+  onCreateNotebook,
   onOpenNotebook,
   onLogout,
 }) {
@@ -123,18 +124,7 @@ function ProfilePage({
       />
 
       {/* Desktop Main */}
-      <main className="flex-1 overflow-y-auto px-5 pb-24 pt-6 lg:max-w-5xl lg:px-10 lg:py-10">
-        {/* Mobile header */}
-        <header className="mb-6 flex items-center justify-between lg:hidden">
-          <h1 className="text-xl font-bold tracking-tight">Account</h1>
-          <button type="button" onClick={() => setEditModalOpen(true)} className="rounded-full p-2 text-slate-600 hover:bg-slate-200">
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="5" r="1" fill="currentColor" />
-            <circle cx="12" cy="12" r="1" fill="currentColor" />
-            <circle cx="12" cy="19" r="1" fill="currentColor" />
-          </svg>
-          </button>
-        </header>
+      <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:max-w-5xl lg:px-10 lg:py-10">
 
         {/* Profile header */}
         <section className="mb-8 flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:justify-between lg:mb-10">
@@ -297,11 +287,11 @@ function ProfilePage({
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-[#dde3ef] bg-white/90 px-6 py-3 backdrop-blur-xl lg:hidden">
+      <nav className={`fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t px-4 py-2.5 backdrop-blur-xl lg:hidden ${isDark ? 'border-white/10 bg-black/85' : 'border-orange-100 bg-white/92'}`}>
         {[
           { label: 'Home', action: onGoHome },
           { label: 'Library', action: onGoLibrary },
-          { label: '', action: () => onOpenNotebook(notebooks[0]?.id) },
+          { label: '', action: onCreateNotebook },
           { label: 'Sources', action: onGoSources },
           { label: 'Profile', action: () => {} },
         ].map((item, idx) => (
@@ -309,12 +299,39 @@ function ProfilePage({
             key={`${item.label}-${idx}`}
             type="button"
             onClick={item.action}
-            className={`flex flex-col items-center justify-center transition ${idx === 2 ? '-mt-10 h-16 w-16 rounded-full bg-black text-white hover:scale-105' : 'hover:-translate-y-0.5'}`}
+            className={`flex min-w-[56px] flex-col items-center justify-center transition ${idx === 2 ? '-mt-8 h-14 w-14 rounded-full bg-[#f15a0f] text-white shadow-[0_10px_24px_rgba(241,90,15,0.45)] hover:scale-105' : 'gap-1 py-1 hover:-translate-y-0.5'}`}
           >
             {idx === 2 ? (
               <span className="text-2xl font-bold leading-none">+</span>
             ) : (
-              <span className={`text-[11px] ${idx === 4 ? 'font-bold text-[#f15a0f]' : 'text-[#8ea0bd]'}`}>{item.label}</span>
+              <>
+                <span className={`${idx === 4 ? 'text-[#f15a0f]' : isDark ? 'text-white/65' : 'text-slate-400'}`}>
+                  {idx === 0 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 11.5 12 4l9 7.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 10.5V20h12v-9.5" />
+                    </svg>
+                  )}
+                  {idx === 1 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 3h11a2 2 0 0 1 2 2v14H8a2 2 0 0 0-2 2V3z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 19a2 2 0 0 0-2 2h11" />
+                    </svg>
+                  )}
+                  {idx === 3 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
+                    </svg>
+                  )}
+                  {idx === 4 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="8" r="4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 20a7 7 0 0 1 14 0" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`text-[10px] ${idx === 4 ? 'font-bold text-[#f15a0f]' : isDark ? 'text-white/55' : 'text-slate-400'}`}>{item.label}</span>
+              </>
             )}
           </button>
         ))}

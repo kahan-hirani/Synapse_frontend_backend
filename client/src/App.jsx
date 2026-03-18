@@ -294,10 +294,24 @@ function ProductRoutes() {
 
   const handleDuplicateNotebook = async (id) => {
     if (!token) return;
+    const sourceNotebook = notebooks.find((item) => item.id === id);
+    if (!sourceNotebook) return;
+    const desiredCopyTitle = `${sourceNotebook.title} copy`;
 
     try {
       const response = await api.duplicateNotebook(id, token);
-      const duplicate = normalizeNotebook(response.notebook);
+      const createdDuplicate = normalizeNotebook(response.notebook);
+      let duplicate = createdDuplicate;
+
+      if (createdDuplicate.title !== desiredCopyTitle) {
+        try {
+          const renameResponse = await api.updateNotebook(createdDuplicate.id, { title: desiredCopyTitle }, token);
+          duplicate = normalizeNotebook(renameResponse.notebook);
+        } catch {
+          duplicate = { ...createdDuplicate, title: desiredCopyTitle };
+        }
+      }
+
       setNotebooks((prev) => [duplicate, ...prev]);
       setChatMap((prev) => ({ ...prev, [duplicate.id]: [...(prev[id] || [])] }));
       pushActivity('Duplicated notebook', duplicate.title);
@@ -462,6 +476,7 @@ function ProductRoutes() {
               onGoLibrary={() => navigate('/app/library')}
               onGoSources={() => navigate('/app/sources')}
               onGoProfile={() => navigate('/app/profile')}
+              onCreateNotebook={() => setCreateNotebookOpen(true)}
               onOpenNotebook={handleOpenNotebook}
               onLogout={handleLogout}
             />,
@@ -506,6 +521,7 @@ function ProductRoutes() {
               onGoHome={() => navigate('/app/home')}
               onGoLibrary={() => navigate('/app/library')}
               onGoProfile={() => navigate('/app/profile')}
+              onCreateNotebook={() => setCreateNotebookOpen(true)}
               onOpenNotebook={handleOpenNotebook}
               onLogout={handleLogout}
             />,
@@ -551,6 +567,7 @@ function ProductRoutes() {
               onGoHome={() => navigate('/app/home')}
               onGoLibrary={() => navigate('/app/library')}
               onGoSources={() => navigate('/app/sources')}
+              onCreateNotebook={() => setCreateNotebookOpen(true)}
               onOpenNotebook={handleOpenNotebook}
               onLogout={handleLogout}
             />,

@@ -164,9 +164,9 @@ function NotebookPage({
         </aside>
       </div>
 
-      <div className="lg:hidden">
-        <header className="border-b border-white/10 bg-[linear-gradient(110deg,#171717_0%,#222_55%,#1d1d1d_100%)] px-5 py-4">
-          <div className="flex items-center justify-between">
+      <div className="mx-auto max-w-md lg:hidden">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/65 px-4 py-3 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-2">
             <button type="button" onClick={onGoDashboard} className="flex items-center gap-1 text-sm text-white/70 hover:text-white">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
@@ -174,10 +174,10 @@ function NotebookPage({
               Back
             </button>
             <div className="min-w-0 text-center">
-              <h1 className="truncate text-base font-semibold">{notebook?.title || 'Notebook'}</h1>
-              <p className="text-xs text-white/55">Notebook Summary</p>
+              <h1 className="truncate text-sm font-semibold">{notebook?.title || 'Notebook'}</h1>
+              <p className="text-[11px] text-white/45">Notebook Summary</p>
             </div>
-            <button type="button" className="rounded-full p-1.5 text-white/70 hover:bg-white/10">
+            <button type="button" className="rounded-full p-1.5 text-white/70 hover:bg-white/10" aria-label="Notebook menu">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="5" r="1" fill="currentColor" />
                 <circle cx="12" cy="12" r="1" fill="currentColor" />
@@ -187,22 +187,29 @@ function NotebookPage({
           </div>
         </header>
 
-        <div className="border-b border-white/10 px-4 py-3">
+        <div className="border-b border-white/5 bg-black/35 px-4 py-2.5">
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="mr-2 text-sm uppercase tracking-[0.14em] text-white/45">Sources:</span>
+            <span className="mr-1 text-[10px] uppercase tracking-[0.2em] text-white/40">Sources:</span>
             {notebook?.sources?.slice(0, 3).map((source) => (
               <button
                 key={source.id}
                 type="button"
                 onClick={() => onSelectSource(source.id)}
-                className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${
-                  selectedSource?.id === source.id ? 'border-white/40 bg-white/10 text-white' : 'border-white/20 text-white/70'
+                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs ${
+                  selectedSource?.id === source.id ? 'border-[#f15a0f]/70 bg-[#f15a0f]/20 text-[#ffd4bd]' : 'border-white/20 text-white/70'
                 }`}
               >
                 {source.name}
               </button>
             ))}
-            <button type="button" onClick={onRequestUpload} className="rounded-full border border-white/20 px-3 py-2 text-lg text-white">+</button>
+            <button
+              type="button"
+              onClick={onRequestUpload}
+              className="rounded-full border border-[#f15a0f]/50 bg-[#f15a0f]/20 px-2.5 py-1.5 text-sm font-semibold text-[#ffd4bd]"
+              aria-label="Upload source"
+            >
+              +
+            </button>
           </div>
         </div>
 
@@ -212,7 +219,7 @@ function NotebookPage({
           ) : (
             messages.map((message, idx) => (
               <article key={`${message.role}-${idx}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] rounded-3xl border p-4 text-sm ${message.role === 'user' ? 'border-white/35 bg-white text-black' : 'border-white/12 bg-white/[0.04] text-white'}`}>
+                <div className={`max-w-[88%] rounded-3xl border p-4 text-sm leading-relaxed ${message.role === 'user' ? 'border-[#f15a0f]/25 bg-[#fff6f1] text-[#1f2937]' : 'border-white/12 bg-white/[0.04] text-white'}`}>
                   {message.text}
                   {message.meta && <p className={`mt-2 text-xs ${message.role === 'user' ? 'text-black/60' : 'text-white/45'}`}>{message.meta}</p>}
                 </div>
@@ -221,7 +228,7 @@ function NotebookPage({
           )}
         </section>
 
-        <footer className="fixed inset-x-0 bottom-0 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur-xl">
+        <footer className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md border-t border-white/10 bg-black/85 px-4 py-4 backdrop-blur-xl">
           <form onSubmit={onAsk} className="flex items-center gap-2 rounded-3xl border border-white/15 bg-white/[0.04] p-2">
             <button type="button" onClick={onRequestUpload} className="rounded-full p-1.5 text-white/70 hover:bg-white/10">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -236,7 +243,11 @@ function NotebookPage({
               disabled={!selectedSource?.pdfId || asking}
               className="flex-1 bg-transparent px-2 py-3 text-sm text-white outline-none placeholder:text-white/35 disabled:opacity-40"
             />
-            <button type="submit" disabled={!selectedSource?.pdfId || asking} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-black disabled:opacity-40">
+            <button
+              type="submit"
+              disabled={!selectedSource?.pdfId || asking}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f15a0f] text-white disabled:opacity-40"
+            >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5M5 12l7-7 7 7" />
               </svg>

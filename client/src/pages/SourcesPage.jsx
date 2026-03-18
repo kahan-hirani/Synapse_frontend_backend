@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import AppSidebar from '../components/app/AppSidebar';
 import { useSidebarState } from '../app/SidebarContext';
 
-function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfile, onOpenNotebook, onLogout }) {
+function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfile, onCreateNotebook, onOpenNotebook, onLogout }) {
   const { isCollapsed, toggleCollapsed } = useSidebarState();
   const [query, setQuery] = useState('');
   const isDark = theme === 'dark';
@@ -39,7 +39,7 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
         ]}
       />
 
-      <main className="flex-1 px-5 pb-24 pt-6 lg:px-10 lg:py-10">
+      <main className="flex-1 px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:px-10 lg:py-10">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Sources</h1>
@@ -54,12 +54,12 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search sources or notebooks"
-              className={`w-72 bg-transparent text-sm outline-none ${isDark ? 'text-white placeholder:text-white/35' : 'text-slate-700 placeholder:text-slate-400'}`}
+              className={`w-[220px] bg-transparent text-sm outline-none sm:w-72 ${isDark ? 'text-white placeholder:text-white/35' : 'text-slate-700 placeholder:text-slate-400'}`}
             />
           </label>
         </div>
 
-        <div className={`overflow-hidden rounded-2xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-white/80'}`}>
+        <div className={`hidden overflow-hidden rounded-2xl border lg:block ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-white/80'}`}>
           <table className="w-full text-left text-sm">
             <thead className={`${isDark ? 'border-b border-white/10 text-white/45' : 'border-b border-slate-200 text-slate-500'} text-xs uppercase tracking-[0.12em]`}>
               <tr>
@@ -98,7 +98,85 @@ function SourcesPage({ user, notebooks, theme, onGoHome, onGoLibrary, onGoProfil
             </tbody>
           </table>
         </div>
+
+        <div className="space-y-3 lg:hidden">
+          {sources.map((item) => (
+            <article
+              key={item.sourceId}
+              className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-orange-100 bg-white/85'}`}
+            >
+              <p className="line-clamp-1 text-sm font-semibold">{item.sourceName}</p>
+              <p className={`mt-1 text-xs ${isDark ? 'text-white/55' : 'text-slate-500'}`}>{item.notebookTitle}</p>
+              <p className={`mt-1 text-[11px] ${isDark ? 'text-white/45' : 'text-slate-400'}`}>
+                Added {item.addedAt ? new Date(item.addedAt).toLocaleDateString() : 'Unknown'}
+              </p>
+              <button
+                type="button"
+                onClick={() => onOpenNotebook(item.notebookId)}
+                className="mt-3 rounded-xl bg-[#f15a0f] px-3 py-2 text-xs font-semibold text-white"
+              >
+                Open Notebook
+              </button>
+            </article>
+          ))}
+
+          {sources.length === 0 && (
+            <div className={`rounded-2xl border px-4 py-8 text-center text-sm ${isDark ? 'border-white/10 bg-white/[0.03] text-white/55' : 'border-slate-200 bg-white/85 text-slate-500'}`}>
+              No sources found.
+            </div>
+          )}
+        </div>
       </main>
+
+      <nav className={`fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t px-4 py-2.5 backdrop-blur-xl lg:hidden ${isDark ? 'border-white/10 bg-black/85' : 'border-orange-100 bg-white/92'}`}>
+        {[
+          { label: 'Home', action: onGoHome },
+          { label: 'Library', action: onGoLibrary },
+          { label: '', action: onCreateNotebook },
+          { label: 'Sources', action: () => {} },
+          { label: 'Profile', action: onGoProfile },
+        ].map((item, idx) => (
+          <button
+            key={`${item.label}-${idx}`}
+            type="button"
+            onClick={item.action}
+            className={`flex min-w-[56px] flex-col items-center justify-center transition ${idx === 2 ? '-mt-8 h-14 w-14 rounded-full bg-[#f15a0f] text-white shadow-[0_10px_24px_rgba(241,90,15,0.45)] hover:scale-105' : 'gap-1 py-1 hover:-translate-y-0.5'}`}
+          >
+            {idx === 2 ? (
+              <span className="text-2xl font-bold leading-none">+</span>
+            ) : (
+              <>
+                <span className={`${idx === 3 ? 'text-[#f15a0f]' : isDark ? 'text-white/65' : 'text-slate-400'}`}>
+                  {idx === 0 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 11.5 12 4l9 7.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 10.5V20h12v-9.5" />
+                    </svg>
+                  )}
+                  {idx === 1 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 3h11a2 2 0 0 1 2 2v14H8a2 2 0 0 0-2 2V3z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 19a2 2 0 0 0-2 2h11" />
+                    </svg>
+                  )}
+                  {idx === 3 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
+                    </svg>
+                  )}
+                  {idx === 4 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="8" r="4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 20a7 7 0 0 1 14 0" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`text-[10px] ${idx === 3 ? 'font-bold text-[#f15a0f]' : isDark ? 'text-white/55' : 'text-slate-400'}`}>{item.label}</span>
+              </>
+            )}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

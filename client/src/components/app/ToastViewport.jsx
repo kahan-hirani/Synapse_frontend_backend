@@ -1,6 +1,6 @@
 function ToastViewport({ toasts, onDismiss }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+    <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex w-full flex-col gap-2 px-3 sm:inset-x-auto sm:right-4 sm:top-4 sm:w-full sm:max-w-sm sm:px-0">
       {toasts.map((toast) => (
         <div
           key={toast.id}
