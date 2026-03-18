@@ -1,66 +1,97 @@
-// vectorStore.utility.js
-const { embedGemini } = require("./geminiClient.utility");
-
-// In-memory vector store (for fast retrieval)
-// Structure: { pdfId: [{ chunk, embedding, page }] }
+// Lightweight in-memory vector cache keyed by pdfId.
+// MongoDB remains the source of truth for persistence.
 const vectorDB = {};
 
-// ✅ Store chunks with embeddings (supports precomputed ones)
-// Accepts items shaped like { text, chunk, page, embedding }
-const storePDFChunks = async (pdfId, chunks, precomputed = false) => {
+function toNumberArray(vector) {
+  if (!vector) return null;
+  if (Array.isArray(vector)) return vector.map((value) => Number(value));
+  if (typeof vector?.slice === 'function') return Array.from(vector).map((value) => Number(value));
+  return null;
+}
+
+async function storePDFChunks(pdfId, chunks, precomputed = false, embedFn = null) {
   vectorDB[pdfId] = [];
 
-  for (const item of chunks) {
-    // Support both 'text' (used in some places) and 'chunk' (DB schema)
-    const text = item.text || item.chunk || "";
-    const page = item.page || 1;
-    let vector = item.embedding;
+  for (let idx = 0; idx < chunks.length; idx += 1) {
+    const item = chunks[idx];
+    const text = String(item.text || item.chunk || '').trim();
+    if (!text) continue;
 
-    // If no precomputed embedding → compute with Gemini
-    if (!precomputed) {
-      vector = await embedGemini(text);
+    const page = Number(item.page || 1);
+    const source = item.source ? String(item.source) : '';
+    const chunkId = item.chunkId || `${pdfId}_chunk_${idx + 1}`;
+
+    let embedding = toNumberArray(item.embedding);
+    if (!precomputed && !embedding && typeof embedFn === 'function') {
+      embedding = await embedFn(text);
+      embedding = toNumberArray(embedding);
     }
 
-    if (!vector) continue;
-
-    // Ensure we store a plain Array of Numbers (not a typed array)
-    if (typeof vector.slice === "function") {
-      // typed arrays and normal arrays both have slice; convert typed arrays safely
-      vector = Array.from(vector);
-    }
+    if (!embedding || !embedding.length) continue;
 
     vectorDB[pdfId].push({
-      chunk: text || "EMPTY_CHUNK",
-      embedding: vector,
+      chunkId,
+      text,
+      chunk: text,
       page,
+      source,
+      embedding,
     });
   }
-};
 
-// ✅ Cosine similarity
-const cosineSimilarity = (a, b) => {
-  const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-  const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  return normA && normB ? dot / (normA * normB) : 0;
-};
+  return vectorDB[pdfId];
+}
 
-// ✅ Retrieve top K relevant chunks
-const searchChunks = async (pdfId, query, k = 3) => {
-  const queryEmbedding = await embedGemini(query);
-  if (!queryEmbedding || !vectorDB[pdfId]) return [];
+function getVectorFor(pdfId) {
+  return vectorDB[pdfId] || [];
+}
 
-  return vectorDB[pdfId]
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const av = Number(a[i] || 0);
+    const bv = Number(b[i] || 0);
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function searchChunksByVector(pdfId, queryEmbedding, k = 20) {
+  const query = toNumberArray(queryEmbedding);
+  if (!query || !query.length) return [];
+
+  const rows = vectorDB[pdfId] || [];
+  return rows
     .map((item) => ({
       ...item,
-      score: cosineSimilarity(queryEmbedding, item.embedding),
+      score: cosineSimilarity(query, item.embedding),
+      pdfId,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, k);
+}
+
+function searchChunksAcrossPdfs(pdfIds, queryEmbedding, k = 20) {
+  const all = [];
+  (pdfIds || []).forEach((pdfId) => {
+    const matches = searchChunksByVector(String(pdfId), queryEmbedding, k);
+    all.push(...matches);
+  });
+
+  return all.sort((a, b) => b.score - a.score).slice(0, k);
+}
+
+module.exports = {
+  storePDFChunks,
+  getVectorFor,
+  searchChunksByVector,
+  searchChunksAcrossPdfs,
 };
-
-module.exports = { storePDFChunks, searchChunks };
-// Debug helper: expose vector data for a pdfId
-const getVectorFor = (pdfId) => vectorDB[pdfId] || [];
-
-module.exports = { storePDFChunks, searchChunks, getVectorFor };

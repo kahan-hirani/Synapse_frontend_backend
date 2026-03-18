@@ -14,7 +14,7 @@ const chatSchema = new mongoose.Schema(
     },
     question: { type: String, required: true },
     answer: { type: String, required: true },
-    citations: [{ page: Number }],
+    citations: [{ page: Number, source: String }],
   },
   { timestamps: true }
 );

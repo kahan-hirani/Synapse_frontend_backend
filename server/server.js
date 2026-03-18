@@ -27,6 +27,10 @@ app.use('/api/v1/pdf', pdfRoute);
 app.use('/api/v1/chat', chatRoute);
 app.use('/api/v1/notebooks', notebookRoute);
 
+// Route aliases for notebook-style API naming
+app.use('/api/source', pdfRoute);
+app.use('/api/chat', chatRoute);
+
 // Debug endpoint: inspect in-memory vectorDB for a pdfId
 app.get('/api/v1/debug/vector/:pdfId', (req, res) => {
   if (process.env.NODE_ENV === 'production') {

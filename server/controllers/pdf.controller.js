@@ -1,12 +1,16 @@
-const path = require("path");
-const { extractTextFromPDF } = require("../utilities/pdfProcessor.utility");
-const { embedGemini } = require("../utilities/geminiClient.utility");
-const PDF = require("../models/pdf.model");
+const path = require('path');
+const asyncHandler = require('../utilities/asyncHandler.utility');
+const ErrorHandler = require('../utilities/errorHandler.utility');
+const PDF = require('../models/pdf.model');
 const Notebook = require('../models/notebook.model');
+const redis = require('../db/redis');
 const { toNotebookResponse } = require('./notebook.controller');
-const asyncHandler = require("../utilities/asyncHandler.utility");
-const redis = require("../db/redis");
-const { storePDFChunks } = require("../utilities/vectorStore.utility");
+const { extractTextFromPDF, chunkTextByTokens } = require('../utilities/pdfProcessor.utility');
+const { embedText } = require('../utilities/huggingfaceClient.utility');
+const { storePDFChunks } = require('../utilities/vectorStore.utility');
+
+const CHUNK_SIZE_TOKENS = Number(process.env.RAG_CHUNK_SIZE || 1000);
+const CHUNK_OVERLAP_TOKENS = Number(process.env.RAG_CHUNK_OVERLAP || 100);
 
 async function attachSourceToNotebook(notebookId, userId, sourceName, pdfId) {
   if (!notebookId) return null;
@@ -55,72 +59,89 @@ const uploadPDF = asyncHandler(async (req, res, next) => {
   const notebookId = req.body.notebookId;
 
   if (!req.file) {
-    return res.status(400).json({ success: false, message: "No file uploaded" });
+    return next(new ErrorHandler('No file uploaded', 400));
   }
 
-  const pdfPath = path.join(__dirname, "..", "uploads", req.file.filename);
+  const pdfPath = path.join(__dirname, '..', 'uploads', req.file.filename);
+  const cacheKey = `pdf:ingest:${req.user.id}:${req.file.originalname}:${req.file.size}`;
+  const cachedPdfId = await redis.get(cacheKey);
 
-  // ✅ Redis cache check
-  const cached = await redis.get(`pdf:${req.file.filename}`);
-  if (cached) {
-    const cachedDoc = JSON.parse(cached);
-    const attachment = await attachSourceToNotebook(notebookId, req.user.id, req.file.originalname, cachedDoc._id);
+  if (cachedPdfId) {
+    const existingPdf = await PDF.findOne({ _id: cachedPdfId, uploadedBy: req.user.id });
+    if (existingPdf) {
+      await storePDFChunks(
+        existingPdf._id.toString(),
+        existingPdf.embeddings.map((row) => ({
+          chunkId: row.chunkId,
+          text: row.chunk,
+          page: row.page,
+          source: row.source || req.file.originalname,
+          embedding: row.embedding,
+        })),
+        true,
+      );
 
-    return res.status(200).json({
-      success: true,
-      message: "Loaded PDF embeddings from cache",
-      pdfId: cachedDoc._id,
-      source: attachment?.source,
-      notebook: attachment?.notebook ? toNotebookResponse(attachment.notebook) : undefined,
-    });
-  }
+      const attachment = await attachSourceToNotebook(
+        notebookId,
+        req.user.id,
+        req.file.originalname,
+        existingPdf._id,
+      );
 
-  // ✅ Extract page-wise text
-  const pageTexts = await extractTextFromPDF(pdfPath);
-  console.log("Extracted pages:", pageTexts.length);
-
-  if (!pageTexts.length) {
-    return res.status(400).json({
-      success: false,
-      message: "❌ Could not extract text from PDF (maybe scanned/image-based).",
-    });
-  }
-
-  const embeddings = [];
-
-  for (const { page, text } of pageTexts) {
-    if (!text) continue;
-
-    // Further split long page into 500-word chunks
-    const words = text.split(/\s+/);
-    for (let i = 0; i < words.length; i += 500) {
-      const chunkText = words.slice(i, i + 500).join(" ");
-      if (!chunkText.trim()) continue;
-
-      try {
-        const embedding = await embedGemini(chunkText);
-        if (embedding) {
-          console.log(`✅ Stored embedding for page ${page}, chunk length: ${embedding.length}`);
-          embeddings.push({
-            chunk: chunkText,
-            embedding,
-            page
-          });
-        }
-      } catch (err) {
-        console.warn("⚠️ Skipping embedding for page:", page, err.message);
-      }
+      return res.status(200).json({
+        success: true,
+        message: 'Loaded indexed PDF from cache',
+        pdfId: existingPdf._id,
+        source: attachment?.source,
+        notebook: attachment?.notebook ? toNotebookResponse(attachment.notebook) : undefined,
+      });
     }
   }
 
-  if (!embeddings.length) {
-    return res.status(500).json({
-      success: false,
-      message: "❌ No embeddings could be generated. Try again later.",
+  const pages = await extractTextFromPDF(pdfPath);
+  if (!pages.length) {
+    return next(new ErrorHandler('Could not extract text from PDF. If scanned, add OCR first.', 400));
+  }
+
+  const chunkRows = [];
+  for (const pageRow of pages) {
+    const chunks = chunkTextByTokens(pageRow.text, {
+      chunkSize: CHUNK_SIZE_TOKENS,
+      overlap: CHUNK_OVERLAP_TOKENS,
+    });
+
+    chunks.forEach((chunk, idx) => {
+      chunkRows.push({
+        chunkId: `${req.file.filename}_p${pageRow.page}_c${idx + 1}`,
+        text: chunk.text,
+        page: pageRow.page,
+        source: req.file.originalname,
+      });
     });
   }
 
-  // ✅ Save to Mongo
+  if (!chunkRows.length) {
+    return next(new ErrorHandler('No useful text chunks were produced from this PDF.', 400));
+  }
+
+  const embeddings = [];
+  for (const row of chunkRows) {
+    const vector = await embedText(row.text);
+    if (!vector?.length) continue;
+
+    embeddings.push({
+      chunkId: row.chunkId,
+      chunk: row.text,
+      embedding: vector,
+      page: row.page,
+      source: row.source,
+    });
+  }
+
+  if (!embeddings.length) {
+    return next(new ErrorHandler('No embeddings could be generated for this PDF.', 500));
+  }
+
   const pdfDoc = await PDF.create({
     filename: req.file.filename,
     path: pdfPath,
@@ -128,17 +149,25 @@ const uploadPDF = asyncHandler(async (req, res, next) => {
     embeddings,
   });
 
-  // ✅ Preload into in-memory VectorStore
-  await storePDFChunks(pdfDoc._id.toString(), embeddings, true);
+  await storePDFChunks(
+    pdfDoc._id.toString(),
+    embeddings.map((row) => ({
+      chunkId: row.chunkId,
+      text: row.chunk,
+      page: row.page,
+      source: row.source,
+      embedding: row.embedding,
+    })),
+    true,
+  );
 
-  // ✅ Cache in Redis
-  await redis.set(`pdf:${req.file.filename}`, JSON.stringify(pdfDoc), "EX", 86400);
+  await redis.set(cacheKey, String(pdfDoc._id), 'EX', 86400);
 
   const attachment = await attachSourceToNotebook(notebookId, req.user.id, req.file.originalname, pdfDoc._id);
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
-    message: "✅ PDF uploaded & processed successfully",
+    message: 'PDF uploaded and indexed successfully',
     pdfId: pdfDoc._id,
     source: attachment?.source,
     notebook: attachment?.notebook ? toNotebookResponse(attachment.notebook) : undefined,

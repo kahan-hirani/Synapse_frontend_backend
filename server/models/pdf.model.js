@@ -11,9 +11,11 @@ const pdfSchema = new mongoose.Schema(
     },
     embeddings: [
       {
+        chunkId: String,
         chunk: String,
         embedding: [Number],
         page: Number,
+        source: String,
       },
     ],
   },
