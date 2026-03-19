@@ -1,6 +1,9 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    {
+      "source": "/",
+      "destination": "/"
+    },
     {
       "source": "/api/:path*",
       "destination": "https://replace-with-your-render-service.onrender.com/api/:path*"
