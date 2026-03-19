@@ -69,4 +69,3 @@ Detailed setup commands and environment variables are documented in:
 
 - Frontend deep dive: [client/README.md](client/README.md)
 - Backend deep dive: [server/README.md](server/README.md)
-- Design direction: [DESIGN.md](DESIGN.md)
