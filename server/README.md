@@ -1,4 +1,4 @@
-# NotebookLM Backend (RAG Engine + API Core)
+# Synapse Backend (RAG Engine + API Core)
 
 This service is the intelligence backbone behind the Synapse notebook experience.
 It handles:
