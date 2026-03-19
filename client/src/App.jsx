@@ -57,12 +57,15 @@ function DomainRouter() {
       setAuthSubmitting(true);
 
       try {
-        const payload =
-          authMode === 'register'
-            ? { username: authForm.username, email: authForm.email, password: authForm.password }
-            : { email: authForm.email, password: authForm.password };
+        if (authMode === 'register') {
+          await api.register({ username: authForm.username, email: authForm.email, password: authForm.password });
+          setAuthMode('login');
+          setAuthStatus('Account created successfully. Please sign in to continue.');
+          setAuthForm((prev) => ({ ...prev, password: '' }));
+          return;
+        }
 
-        const data = authMode === 'register' ? await api.register(payload) : await api.login(payload);
+        const data = await api.login({ email: authForm.email, password: authForm.password });
         const target = buildAppUrl(`/app?token=${encodeURIComponent(data.token)}`);
         window.location.href = target;
       } catch (error) {
