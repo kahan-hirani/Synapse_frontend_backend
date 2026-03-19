@@ -1,0 +1,227 @@
+{
+  "info": {
+    "name": "Synapse RAG API",
+    "description": "Ready-to-test Postman collection for Synapse Hugging Face RAG backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"ragtester\",\n  \"email\": \"ragtester@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": "{{baseUrl}}/users/register"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Register status is 201/200', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "const json = pm.response.json();",
+              "if (json && json.token) pm.environment.set('token', json.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"ragtester@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": "{{baseUrl}}/users/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "if (json && json.token) pm.environment.set('token', json.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User - Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/users/profile"
+      }
+    },
+    {
+      "name": "Notebook - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"RL Research Notebook\",\n  \"icon\": \"📘\"\n}"
+        },
+        "url": "{{baseUrl}}/notebooks"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Notebook create status is 201', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "const json = pm.response.json();",
+              "if (json && json.notebook && json.notebook.id) pm.environment.set('notebookId', json.notebook.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notebook - List",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/notebooks"
+      }
+    },
+    {
+      "name": "Source - Upload PDF (v1)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "pdf",
+              "type": "file",
+              "src": ""
+            },
+            {
+              "key": "notebookId",
+              "type": "text",
+              "value": "{{notebookId}}"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/pdf/upload"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Upload status is 201/200', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "const json = pm.response.json();",
+              "if (json && json.pdfId) pm.environment.set('pdfId', json.pdfId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Source - Upload PDF (alias)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "pdf",
+              "type": "file",
+              "src": ""
+            },
+            {
+              "key": "notebookId",
+              "type": "text",
+              "value": "{{notebookId}}"
+            }
+          ]
+        },
+        "url": "{{aliasBaseUrl}}/source/upload"
+      }
+    },
+    {
+      "name": "Chat - Ask by notebookId",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"notebookId\": \"{{notebookId}}\",\n  \"question\": \"What are the key findings in these sources?\"\n}"
+        },
+        "url": "{{baseUrl}}/chat"
+      }
+    },
+    {
+      "name": "Chat - Ask by pdfId",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pdfId\": \"{{pdfId}}\",\n  \"question\": \"Summarize this document in 5 bullets.\"\n}"
+        },
+        "url": "{{baseUrl}}/chat"
+      }
+    },
+    {
+      "name": "Chat - Ask via alias",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"notebookId\": \"{{notebookId}}\",\n  \"question\": \"Give answer with citations.\"\n}"
+        },
+        "url": "{{aliasBaseUrl}}/chat"
+      }
+    }
+  ]
+}
