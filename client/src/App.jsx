@@ -547,6 +547,20 @@ function ProductRoutes() {
     return <Navigate to="/auth" replace />;
   };
 
+  const homeElement = protectedElement(
+    <HomePage
+      user={user}
+      notebooks={notebooks}
+      theme={theme}
+      onGoLibrary={() => navigate('/app/library')}
+      onGoSources={() => navigate('/app/sources')}
+      onGoProfile={() => navigate('/app/profile')}
+      onCreateNotebook={() => setCreateNotebookOpen(true)}
+      onOpenNotebook={handleOpenNotebook}
+      onLogout={handleLogout}
+    />,
+  );
+
   return (
     <>
       <Routes>
@@ -561,26 +575,9 @@ function ProductRoutes() {
         }
       />
 
-      <Route path="/app" element={protectedElement(<Navigate to="/app/home" replace />)} />
+      <Route path="/app" element={homeElement} />
 
-      <Route
-        path="/app/home"
-        element={
-          protectedElement(
-            <HomePage
-              user={user}
-              notebooks={notebooks}
-              theme={theme}
-              onGoLibrary={() => navigate('/app/library')}
-              onGoSources={() => navigate('/app/sources')}
-              onGoProfile={() => navigate('/app/profile')}
-              onCreateNotebook={() => setCreateNotebookOpen(true)}
-              onOpenNotebook={handleOpenNotebook}
-              onLogout={handleLogout}
-            />,
-          )
-        }
-      />
+      <Route path="/app/home" element={homeElement} />
 
       <Route
         path="/app/library"
