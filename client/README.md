@@ -1,4 +1,4 @@
-# NotebookLM Frontend (Synapse UI)
+# Synapse UI Frontend
 
 The client app is the visual command center for a notebook-first RAG experience.
 It combines a cinematic marketing surface with a production workspace where users can:
