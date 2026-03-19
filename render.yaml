@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: notebooklm-backend
+    env: docker
+    plan: free
+    autoDeploy: true
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_TLS
+        value: "true"
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: HF_EMBEDDING_MODEL
+        value: BAAI/bge-large-en-v1.5
+      - key: HF_RERANKER_MODEL
+        value: BAAI/bge-reranker-large
+      - key: HF_LLM_MODEL
+        value: meta-llama/Llama-3.1-8B-Instruct
+      - key: HF_LLM_FALLBACK_MODELS
+        value: meta-llama/Llama-3.2-3B-Instruct,Qwen/Qwen2.5-7B-Instruct,mistralai/Mistral-7B-Instruct-v0.3
+      - key: HF_INFERENCE_BASE_URL
+        value: https://router.huggingface.co/hf-inference/models
+      - key: HF_CHAT_COMPLETIONS_URL
+        value: https://router.huggingface.co/v1/chat/completions
+      - key: RAG_CHUNK_SIZE
+        value: "1000"
+      - key: RAG_CHUNK_OVERLAP
+        value: "100"
+      - key: RAG_RETRIEVAL_TOP_K
+        value: "20"
+      - key: RAG_RERANK_TOP_N
+        value: "5"
+      - key: VECTOR_DB_BACKEND
+        value: in-memory
