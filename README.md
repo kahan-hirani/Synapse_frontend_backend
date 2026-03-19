@@ -1,4 +1,4 @@
-# NotebookLM Clone - RAG Workspace Platform
+# Synapse - RAG Workspace Platform
 
 > A modern notebook-first AI research workspace where users upload sources, ask grounded questions, and get citation-aware answers.
 
@@ -28,7 +28,7 @@ If you want to understand the whole system quickly:
 
 ## Project in One Minute
 
-This project is a full-stack NotebookLM-style system with two tightly connected layers:
+This project is a full-stack Synapse system with two tightly connected layers:
 
 - Frontend: A cinematic, responsive React app for notebooks, source management, profile management, and AI chat UX.
 - Backend: A Node.js Express API that ingests PDFs, chunks content, generates embeddings, retrieves and reranks context, and returns grounded answers with citations.
