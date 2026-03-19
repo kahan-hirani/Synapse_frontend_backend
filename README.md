@@ -5,10 +5,15 @@
 <p align="left">
   <a href="client/README.md"><img src="https://img.shields.io/badge/Frontend-React%2019%20%2B%20Vite%208-0ea5e9?style=for-the-badge&logo=react&logoColor=white" alt="Frontend" /></a>
   <a href="server/README.md"><img src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express%205-16a34a?style=for-the-badge&logo=node.js&logoColor=white" alt="Backend" /></a>
+  <img src="https://img.shields.io/badge/Container-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Database-MongoDB-22c55e?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
   <img src="https://img.shields.io/badge/Cache-Redis-dc2626?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
   <img src="https://img.shields.io/badge/RAG-Hugging%20Face-f59e0b?style=for-the-badge&logo=huggingface&logoColor=black" alt="RAG" />
 </p>
+
+## Live Website
+
+- Marketing website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
 
 ---
 

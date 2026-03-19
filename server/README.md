@@ -12,6 +12,10 @@ It handles:
 
 If the frontend is the cockpit, this backend is the propulsion system.
 
+## Live Website
+
+- Marketing website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
+
 ## Table of Contents
 
 - [System Purpose](#system-purpose)

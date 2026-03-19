@@ -12,6 +12,10 @@ It combines a cinematic marketing surface with a production workspace where user
 
 This README is intentionally detailed so new contributors can move from zero to productive quickly.
 
+## Live Website
+
+- Marketing website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
+
 ## Table of Contents
 
 - [Vision](#vision)
