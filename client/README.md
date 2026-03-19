@@ -14,7 +14,7 @@ This README is intentionally detailed so new contributors can move from zero to 
 
 ## Live Website
 
-- Marketing website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
+- website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
 
 ## Table of Contents
 

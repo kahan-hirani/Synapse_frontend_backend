@@ -13,7 +13,7 @@
 
 ## Live Website
 
-- Marketing website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
+- website: [https://synapse-nu-sable.vercel.app/](https://synapse-nu-sable.vercel.app/)
 
 ---
 
