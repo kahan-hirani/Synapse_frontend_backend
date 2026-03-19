@@ -354,12 +354,7 @@ function ProfilePage({
         isOpen={passwordModalOpen}
         isDark={isDark}
         onClose={() => setPasswordModalOpen(false)}
-        onSave={async (payload) => {
-          const updated = await onChangePassword(payload);
-          if (updated) {
-            setPasswordModalOpen(false);
-          }
-        }}
+        onSave={onChangePassword}
       />
     </div>
   );

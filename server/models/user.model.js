@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema(
         default: true,
       },
     },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -152,6 +152,10 @@ const updateProfile = asyncHandler(async (req, res, next) => {
 });
 
 const updatePassword = asyncHandler(async (req, res, next) => {
+  if (!req.user?.id) {
+    return next(new ErrorHandler('Unauthorized', 401));
+  }
+
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
     return next(new ErrorHandler('Current and new passwords are required', 400));
@@ -159,6 +163,10 @@ const updatePassword = asyncHandler(async (req, res, next) => {
 
   if (newPassword.length < 6) {
     return next(new ErrorHandler('New password must be at least 6 characters', 400));
+  }
+
+  if (currentPassword === newPassword) {
+    return next(new ErrorHandler('New password must be different from current password', 400));
   }
 
   const user = await User.findById(req.user.id);
@@ -172,11 +180,23 @@ const updatePassword = asyncHandler(async (req, res, next) => {
   }
 
   user.password = await bcrypt.hash(newPassword, 10);
+  user.passwordChangedAt = new Date();
   await user.save();
+
+  const persistedUser = await User.findById(req.user.id).select('password passwordChangedAt');
+  if (!persistedUser) {
+    return next(new ErrorHandler('User not found after password update', 404));
+  }
+
+  const persistedMatch = await bcrypt.compare(newPassword, persistedUser.password);
+  if (!persistedMatch) {
+    return next(new ErrorHandler('Password update could not be persisted', 500));
+  }
 
   res.status(200).json({
     success: true,
     message: 'Password updated successfully',
+    passwordChangedAt: persistedUser.passwordChangedAt,
   });
 });
 
