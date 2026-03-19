@@ -2,16 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { api } from './api/api';
 import { buildAppUrl, buildLandingUrl, isAppSubdomain } from './app/domain';
-import AuthPage from './pages/AuthPage';
 import ContactPage from './pages/ContactPage';
 import DashboardPage from './pages/DashboardPage';
+import FeaturesPage from './pages/FeaturesPage';
 import HomePage from './pages/HomePage';
 import LandingPage from './pages/LandingPage';
 import MarketingLayout from './pages/MarketingLayout';
 import NotebookPage from './pages/NotebookPage';
 import ProfilePage from './pages/ProfilePage';
 import SourcesPage from './pages/SourcesPage';
+import WorkflowTourPage from './pages/WorkflowTourPage';
 import WhyPage from './pages/WhyPage';
+import AuthModal from './components/app/AuthModal';
 import CreateNotebookModal from './components/app/CreateNotebookModal';
 import RenameNotebookModal from './components/app/RenameNotebookModal';
 import ToastViewport from './components/app/ToastViewport';
@@ -26,14 +28,81 @@ function App() {
 
 function DomainRouter() {
   const appHost = isAppSubdomain();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
+  const [authStatus, setAuthStatus] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  const openAuthModal = useCallback((mode = 'login') => {
+    setAuthMode(mode);
+    setAuthStatus('');
+    setAuthOpen(true);
+  }, []);
+
+  const closeAuthModal = useCallback(() => {
+    setAuthOpen(false);
+    setAuthStatus('');
+  }, []);
+
+  const handleMarketingAuthFieldChange = useCallback((event) => {
+    const { name, value } = event.target;
+    setAuthForm((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleMarketingAuthSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setAuthStatus('');
+      setAuthSubmitting(true);
+
+      try {
+        const payload =
+          authMode === 'register'
+            ? { username: authForm.username, email: authForm.email, password: authForm.password }
+            : { email: authForm.email, password: authForm.password };
+
+        const data = authMode === 'register' ? await api.register(payload) : await api.login(payload);
+        const target = buildAppUrl(`/app?token=${encodeURIComponent(data.token)}`);
+        window.location.href = target;
+      } catch (error) {
+        setAuthStatus(error.message);
+      } finally {
+        setAuthSubmitting(false);
+      }
+    },
+    [authForm, authMode],
+  );
 
   if (!appHost) {
     return (
       <Routes>
-        <Route path="/" element={<MarketingLayout onTryNotebook={() => (window.location.href = buildAppUrl('/auth'))} />}>
-          <Route index element={<LandingPage onTryNotebook={() => (window.location.href = buildAppUrl('/auth'))} />} />
+        <Route
+          path="/"
+          element={
+            <MarketingLayout
+              onTryNotebook={() => openAuthModal('login')}
+              authModal={
+                <AuthModal
+                  isOpen={authOpen}
+                  authMode={authMode}
+                  authForm={authForm}
+                  status={authStatus}
+                  isSubmitting={authSubmitting}
+                  onClose={closeAuthModal}
+                  onChangeMode={setAuthMode}
+                  onFieldChange={handleMarketingAuthFieldChange}
+                  onSubmit={handleMarketingAuthSubmit}
+                />
+              }
+            />
+          }
+        >
+          <Route index element={<LandingPage onTryNotebook={() => openAuthModal('login')} />} />
+          <Route path="features" element={<FeaturesPage onTryNotebook={() => openAuthModal('login')} />} />
+          <Route path="workflow" element={<WorkflowTourPage onTryNotebook={() => openAuthModal('login')} />} />
           <Route path="why" element={<WhyPage />} />
-          <Route path="contact" element={<ContactPage onTryNotebook={() => (window.location.href = buildAppUrl('/auth'))} />} />
+          <Route path="contact" element={<ContactPage onTryNotebook={() => openAuthModal('login')} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -46,12 +115,11 @@ function DomainRouter() {
 function ProductRoutes() {
   const navigate = useNavigate();
 
-  const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '' });
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('nb_token') || '');
+  const [token, setToken] = useState(() => localStorage.getItem('nb_token') || new URLSearchParams(window.location.search).get('token') || '');
   const [status, setStatus] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('nb_theme') || 'dark');
+  const [authReady, setAuthReady] = useState(false);
 
   const [notebooks, setNotebooks] = useState([]);
   const [chatMap, setChatMap] = useState({});
@@ -75,6 +143,15 @@ function ProductRoutes() {
 
   const sourceInputRef = useRef(null);
   const didBootstrapProfile = useRef(false);
+
+  useEffect(() => {
+    const queryToken = new URLSearchParams(window.location.search).get('token');
+    if (!queryToken) return;
+
+    localStorage.setItem('nb_token', queryToken);
+    setToken(queryToken);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('nb_theme', theme);
@@ -141,7 +218,10 @@ function ProductRoutes() {
     didBootstrapProfile.current = true;
 
     async function bootstrapProfile() {
-      if (!token) return;
+      if (!token) {
+        setAuthReady(true);
+        return;
+      }
 
       try {
         const data = await api.profile(token);
@@ -152,50 +232,13 @@ function ProductRoutes() {
         localStorage.removeItem('nb_token');
         setToken('');
         setUser(null);
+      } finally {
+        setAuthReady(true);
       }
     }
 
     bootstrapProfile();
   }, [token, applyUser, loadNotebooks, navigate]);
-
-  const handleAuthFieldChange = (event) => {
-    const { name, value } = event.target;
-    setAuthForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAuthSubmit = async (event) => {
-    event.preventDefault();
-    setStatus('');
-
-    try {
-      const payload =
-        authMode === 'register'
-          ? { username: authForm.username, email: authForm.email, password: authForm.password }
-          : { email: authForm.email, password: authForm.password };
-
-      const data = authMode === 'register' ? await api.register(payload) : await api.login(payload);
-
-      setToken(data.token);
-      localStorage.setItem('nb_token', data.token);
-
-      if (data.user) {
-        applyUser(data.user);
-      } else {
-        const profileData = await api.profile(data.token);
-        applyUser(profileData.user);
-      }
-
-      await loadNotebooks(data.token);
-
-      setStatus(authMode === 'register' ? 'Account created.' : 'Signed in successfully.');
-      notify(authMode === 'register' ? 'Account created successfully.' : 'Signed in successfully.');
-      setAuthForm({ username: '', email: '', password: '' });
-      navigate('/app', { replace: true });
-    } catch (error) {
-      setStatus(error.message);
-      notify(error.message, 'error');
-    }
-  };
 
   const handleUpdateProfile = async (payload) => {
     if (!token) return false;
@@ -233,7 +276,7 @@ function ProductRoutes() {
       setUser(null);
       setStatus('Logged out.');
       notify('Logged out successfully.');
-      navigate('/auth', { replace: true });
+      window.location.href = buildLandingUrl('/');
     }
   };
 
@@ -493,7 +536,13 @@ function ProductRoutes() {
     [token, notify],
   );
 
-  const protectedElement = (element) => (user ? element : <Navigate to="/auth" replace />);
+  const protectedElement = (element) => {
+    if (user) return element;
+    if (token && !authReady) {
+      return <div className="min-h-screen bg-black" />;
+    }
+    return <Navigate to="/auth" replace />;
+  };
 
   return (
     <>
@@ -504,15 +553,7 @@ function ProductRoutes() {
           user ? (
             <Navigate to="/app" replace />
           ) : (
-            <AuthPage
-              authMode={authMode}
-              authForm={authForm}
-              status={status}
-              onFieldChange={handleAuthFieldChange}
-              onChangeMode={setAuthMode}
-              onSubmit={handleAuthSubmit}
-              onBackToLanding={() => (window.location.href = buildLandingUrl('/'))}
-            />
+            <Navigate to={buildLandingUrl('/')} replace />
           )
         }
       />
