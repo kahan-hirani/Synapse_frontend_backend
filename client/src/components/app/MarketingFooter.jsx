@@ -66,7 +66,21 @@ function MarketingFooter({ onTryNotebook }) {
       </div>
 
       <div className="relative z-10 mt-10 flex flex-col items-start justify-between gap-4 border-t border-orange-100/10 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center">
-        <p>Copyright {new Date().getFullYear()} Synapse AI. All rights reserved.</p>
+        <div className="space-y-2">
+          <p>Copyright {new Date().getFullYear()} Synapse AI. All rights reserved.</p>
+          <p>
+            Made with love by{' '}
+            <a
+              href="https://github.com/kahan-hirani"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-orange-200 transition hover:text-orange-100"
+            >
+              Kahan Hirani
+            </a>
+            .
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link to="/contact" className="transition hover:text-orange-200">
             Privacy
@@ -77,6 +91,22 @@ function MarketingFooter({ onTryNotebook }) {
           <Link to="/contact" className="transition hover:text-orange-200">
             Contact
           </Link>
+          <a
+            href="https://github.com/kahan-hirani"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-orange-200"
+          >
+            GitHub
+          </a>
+          <a
+            href="https://www.linkedin.com/in/kahan-hirani-7934b92ab/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-orange-200"
+          >
+            LinkedIn
+          </a>
         </div>
       </div>
     </footer>
