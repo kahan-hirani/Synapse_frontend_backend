@@ -6,7 +6,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
+        display: ['"Manrope"', 'sans-serif'],
         body: ['"Inter"', 'sans-serif'],
       },
       animation: {
