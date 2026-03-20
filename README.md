@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&height=180&text=Synapse%20RAG%20Workspace&fontSize=42&fontAlignY=35&animation=twinkling&color=0:0f172a,30:1d4ed8,70:0ea5e9,100:22d3ee" alt="Synapse banner" />
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&height=180&text=Synapse%20RAG%20Workspace&fontSize=42&fontAlignY=35&fontColor=ffffff&animation=twinkling&color=0:0f172a,30:1d4ed8,70:0ea5e9,100:22d3ee" alt="Synapse banner" />
 
 <h3>Notebook-first AI research workspace with grounded answers and citations</h3>
 
